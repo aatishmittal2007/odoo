@@ -130,6 +130,7 @@ export class ProductController {
         categoryId,
         uom = 'units',
         reorderLevel = 10,
+        reorderQuantity = 20,  // FIX: was missing — now persisted on create
         costPrice = 0,
         countingPeriodDays = 30,
         warehouseId,
@@ -155,6 +156,7 @@ export class ProductController {
             categoryId,
             uom,
             reorderLevel: Number(reorderLevel),
+            reorderQuantity: Number(reorderQuantity),  // FIX: now included
             costPrice: Number(costPrice),
             countingPeriodDays: Number(countingPeriodDays),
             lastCountDate: initialStock > 0 ? new Date() : null,

@@ -20,6 +20,11 @@ import { ProcessHealth } from './pages/ProcessHealth';
 import { StockLedger } from './pages/StockLedger';
 import { SettingsPage } from './pages/Settings';
 import { Login } from './pages/Login';
+import { Investigations } from './pages/Investigations';
+import { Tasks } from './pages/Tasks';
+import { RootCauses } from './pages/RootCauses';
+import { Resolutions } from './pages/Resolutions';
+import { ReorderingRules } from './pages/ReorderingRules';
 
 const MainApp: React.FC = () => {
   const { user, loading } = useAuth();
@@ -123,6 +128,20 @@ const MainApp: React.FC = () => {
         return <ProcessHealth key={refreshKey} />;
       case '/ledger':
         return <StockLedger key={refreshKey} />;
+      case '/investigations':
+        return <Investigations key={refreshKey} navigate={navigate} />;
+      case '/tasks':
+        return <Tasks key={refreshKey} navigate={navigate} />;
+      case '/root-causes':
+        return <RootCauses key={refreshKey} navigate={navigate} />;
+      case '/resolutions':
+        return <Resolutions key={refreshKey} navigate={navigate} />;
+      case '/reordering-rules':
+        return <ReorderingRules key={refreshKey} navigate={navigate} />;
+      case '/warehouse-settings':
+        return <SettingsPage key={`wh-${refreshKey}`} initialTab="facilities" />;
+      case '/users-roles':
+        return <SettingsPage key={`users-${refreshKey}`} initialTab="users" />;
       case '/settings':
       case '/settings/warehouse':
       case '/settings/users':
@@ -139,7 +158,7 @@ const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="flex min-h-screen bg-transparent font-sans text-slate-900">
       {/* Sidebar Navigation */}
       <Sidebar currentPath={currentPath} navigate={navigate} />
 

@@ -35,13 +35,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Session verification failed, logging out');
           logout();
         }
-      } else {
-        // Auto demo login on fresh visit so the user has immediate access
-        try {
-          await demoLogin('INVENTORY_MANAGER');
-        } catch (e) {
-          console.warn('Demo login failed', e);
-        }
       }
       setLoading(false);
     };

@@ -12,6 +12,12 @@ import {
   ArrowRight,
   RefreshCw,
   Plus,
+  Building2,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Activity,
+  Package,
 } from 'lucide-react';
 import api from '../services/api';
 import { ControlTowerData } from '../types';
@@ -27,6 +33,9 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
   const [data, setData] = useState<ControlTowerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeFacility, setActiveFacility] = useState<string>(
+    localStorage.getItem('stocksense_active_warehouse') || 'ALL'
+  );
 
   const fetchTowerData = async () => {
     try {
@@ -43,14 +52,22 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
 
   useEffect(() => {
     fetchTowerData();
+
+    // Listen to facility change events from top navbar
+    const handleFacilityChange = (e: any) => {
+      setActiveFacility(e.detail?.warehouseId || 'ALL');
+      fetchTowerData();
+    };
+    window.addEventListener('stocksense:warehouse_changed', handleFacilityChange);
+    return () => window.removeEventListener('stocksense:warehouse_changed', handleFacilityChange);
   }, []);
 
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-3 text-slate-500">
-          <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
-          <span className="text-xs font-semibold">Loading Inventory Control Tower...</span>
+        <div className="flex flex-col items-center gap-3 text-purple-600">
+          <RefreshCw className="w-8 h-8 animate-spin" />
+          <span className="text-xs font-semibold text-slate-600">Syncing Inventory Reality Engine...</span>
         </div>
       </div>
     );
@@ -58,13 +75,15 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
 
   if (error || !data) {
     return (
-      <div className="p-8 text-center text-slate-600">
-        <p className="text-rose-600 font-semibold mb-2">{error || 'Unable to load dashboard'}</p>
+      <div className="p-8 text-center text-slate-600 max-w-md mx-auto mt-12 bg-white rounded-3xl border border-purple-100 shadow-card">
+        <AlertCircle className="w-10 h-10 text-rose-500 mx-auto mb-3" />
+        <h3 className="text-sm font-bold text-slate-900 mb-1">Unable to Load Control Tower</h3>
+        <p className="text-xs text-rose-600 font-medium mb-4">{error || 'Network error encountered.'}</p>
         <button
           onClick={fetchTowerData}
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold"
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
         >
-          Retry Loading
+          Retry Connection
         </button>
       </div>
     );
@@ -73,65 +92,152 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
   const { metrics, confidence, needsAttention, recentMovements } = data;
 
   const topCards = [
-    { label: 'Total Products', value: metrics.totalProducts, icon: Boxes, color: 'text-slate-900', path: '/products' },
-    { label: 'Total On-Hand Stock', value: metrics.totalStock.toLocaleString(), icon: Layers, color: 'text-emerald-700', path: '/stock' },
-    { label: 'Low Stock Alerts', value: metrics.lowStockCount, icon: TrendingDown, color: metrics.lowStockCount > 0 ? 'text-amber-600' : 'text-slate-600', path: '/products?lowStock=true' },
-    { label: 'Open Exceptions', value: metrics.openExceptions, icon: ShieldAlert, color: metrics.openExceptions > 0 ? 'text-orange-600' : 'text-slate-600', path: '/exceptions' },
-    { label: 'Critical Exceptions', value: metrics.criticalExceptions, icon: AlertTriangle, color: metrics.criticalExceptions > 0 ? 'text-rose-600 font-bold' : 'text-slate-600', path: '/exceptions?severity=CRITICAL' },
-    { label: 'Pending Receipts', value: metrics.pendingReceipts, icon: ArrowDownToLine, color: 'text-sky-700', path: '/receipts' },
-    { label: 'Pending Deliveries', value: metrics.pendingDeliveries, icon: ArrowUpFromLine, color: 'text-indigo-700', path: '/deliveries' },
-    { label: 'Active Transfers', value: metrics.pendingTransfers, icon: ArrowLeftRight, color: 'text-purple-700', path: '/transfers' },
+    { label: 'Total SKUs', value: metrics.totalProducts, icon: Boxes, color: 'text-purple-900', path: '/products', badge: 'Active' },
+    { label: 'On-Hand Units', value: metrics.totalStock.toLocaleString(), icon: Layers, color: 'text-purple-700', path: '/stock' },
+    { label: 'Low Stock Alerts', value: metrics.lowStockCount, icon: TrendingDown, color: metrics.lowStockCount > 0 ? 'text-amber-600 font-bold' : 'text-slate-600', path: '/products?lowStock=true', alert: metrics.lowStockCount > 0 },
+    { label: 'Open Exceptions', value: metrics.openExceptions, icon: ShieldAlert, color: metrics.openExceptions > 0 ? 'text-pink-600 font-bold' : 'text-slate-600', path: '/exceptions', alert: metrics.openExceptions > 0 },
+    { label: 'Critical Severity', value: metrics.criticalExceptions, icon: AlertTriangle, color: metrics.criticalExceptions > 0 ? 'text-rose-600 font-black' : 'text-slate-600', path: '/exceptions?severity=CRITICAL', critical: metrics.criticalExceptions > 0 },
+    { label: 'Pending Receipts', value: metrics.pendingReceipts, icon: ArrowDownToLine, color: 'text-indigo-700', path: '/receipts' },
+    { label: 'Pending Deliveries', value: metrics.pendingDeliveries, icon: ArrowUpFromLine, color: 'text-purple-800', path: '/deliveries' },
+    { label: 'Active Transfers', value: metrics.pendingTransfers, icon: ArrowLeftRight, color: 'text-purple-600', path: '/transfers' },
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-7 animate-fadeIn">
+      {/* Control Tower Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-purple-100/60">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">
               Inventory Control Tower
             </h1>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
               Live Reality Sync
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Prioritizes discrepancies, operational exceptions, and down-stream business impact over passive reporting.
+            Real-time consensus between digital ledger transactions and physical facility reality.
           </p>
         </div>
 
-        {/* Quick Operations Actions */}
-        <div className="flex items-center gap-2">
+        {/* Quick Operational Shortcuts */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => navigate('/receipts')}
-            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+            className="px-3.5 py-1.5 bg-white/80 hover:bg-white border border-purple-200/80 text-purple-900 rounded-xl text-xs font-semibold shadow-xs transition-all hover:border-purple-300"
           >
-            + Receipt
+            + New Receipt
           </button>
           <button
             onClick={() => navigate('/transfers')}
-            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+            className="px-3.5 py-1.5 bg-white/80 hover:bg-white border border-purple-200/80 text-purple-900 rounded-xl text-xs font-semibold shadow-xs transition-all hover:border-purple-300"
           >
-            + Transfer
+            + Transfer Stock
           </button>
           <button
             onClick={() => navigate('/deliveries')}
-            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+            className="px-3.5 py-1.5 bg-white/80 hover:bg-white border border-purple-200/80 text-purple-900 rounded-xl text-xs font-semibold shadow-xs transition-all hover:border-purple-300"
           >
-            + Delivery
+            + New Delivery
           </button>
           <button
             onClick={onOpenCountModal}
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5"
+            className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/25 transition-all flex items-center gap-1.5 hover:scale-[1.02]"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Record Count</span>
+            <span>Audit Count</span>
           </button>
         </div>
       </div>
 
-      {/* Top Metric Cards */}
+      {/* Hero Visual Cards Trio (Modern Inventory Inspiration) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Card 1: Inventory Confidence Gauge */}
+        <ConfidenceGauge confidence={confidence} />
+
+        {/* Card 2: Operational Exception Radar */}
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-purple-100/70 p-5 shadow-card hover:border-purple-200 transition-all flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-pink-700 flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-pink-600" />
+                Exception Radar
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-100 text-pink-800">
+                {metrics.openExceptions} Active
+              </span>
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">
+              Operational Variance & Discrepancies
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              Exceptions are raised only when physical audit counts violate mathematical tolerance limits.
+            </p>
+
+            <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-purple-100/60">
+              <div className="p-2.5 rounded-xl bg-rose-50/60 border border-rose-100 text-center">
+                <span className="block text-[10px] uppercase font-bold text-rose-600">Critical</span>
+                <span className="text-lg font-black font-mono text-rose-700">{metrics.criticalExceptions}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-100 text-center">
+                <span className="block text-[10px] uppercase font-bold text-amber-600">Low Stock</span>
+                <span className="text-lg font-black font-mono text-amber-700">{metrics.lowStockCount}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-purple-50/60 border border-purple-100 text-center">
+                <span className="block text-[10px] uppercase font-bold text-purple-600">Pending</span>
+                <span className="text-lg font-black font-mono text-purple-700">{needsAttention.length}</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/exceptions')}
+            className="w-full mt-4 py-2 bg-purple-50 hover:bg-purple-100/80 text-purple-700 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-purple-200/60"
+          >
+            <span>Triage All Exceptions</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Card 3: Dark Card (Hero Highlight & Steel Rods Scenario Spotlight) */}
+        <div className="glass-card-dark p-5 flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-pink-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-pink-400" /> Core Discrepancy Flow
+              </span>
+              <span className="text-xs font-mono font-bold text-purple-300">INC-024</span>
+            </div>
+            <h3 className="text-sm font-bold text-white leading-snug">
+              Steel Rods Physical Discrepancy
+            </h3>
+            <p className="text-xs text-purple-200/70 mt-1.5 leading-relaxed">
+              Book record says 100 kg, but physical verification detected 83 kg (-17 kg variance). 2 customer deliveries are potentially affected.
+            </p>
+
+            <div className="mt-4 p-3 rounded-xl bg-white/5 border border-purple-400/20 backdrop-blur-xs flex items-center justify-between text-xs">
+              <span className="text-purple-300 font-medium">Tolerance Status</span>
+              <span className="font-bold text-pink-400 font-mono">OUTSIDE TOLERANCE</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              const steelExc = needsAttention.find((e) => e.sku === 'SR001' || e.exceptionNumber === 'INC-024');
+              if (steelExc) navigate(`/exceptions/${steelExc.id}`);
+              else navigate('/exceptions');
+            }}
+            className="w-full mt-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-900/50 flex items-center justify-center gap-1.5"
+          >
+            <span>Launch Steel Rods Investigation</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* 8 Essential Key Operational Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {topCards.map((c, i) => {
           const Icon = c.icon;
@@ -139,14 +245,14 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
             <div
               key={i}
               onClick={() => navigate(c.path)}
-              className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group"
+              className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl border border-purple-100/70 hover:border-purple-300 hover:shadow-card transition-all cursor-pointer group"
             >
-              <div className="flex items-center justify-between text-slate-400 group-hover:text-slate-600 mb-1.5">
+              <div className="flex items-center justify-between text-slate-400 group-hover:text-purple-600 mb-1.5">
                 <Icon className="w-4 h-4" />
                 <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <span className="block text-[11px] font-medium text-slate-500 truncate">{c.label}</span>
-              <span className={`text-lg font-bold font-mono tracking-tight ${c.color} block mt-0.5`}>
+              <span className="block text-[11px] font-semibold text-slate-500 truncate">{c.label}</span>
+              <span className={`text-lg font-black font-mono tracking-tight ${c.color} block mt-0.5`}>
                 {c.value}
               </span>
             </div>
@@ -154,143 +260,111 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
         })}
       </div>
 
-      {/* Main Grid: Needs Attention & Inventory Confidence */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Prioritized Needs Attention (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-                Needs Attention
-              </h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold font-mono">
-                {needsAttention.length} Pending
-              </span>
-            </div>
-            <button
-              onClick={() => navigate('/exceptions')}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-            >
-              View All Exceptions <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+      {/* Needs Attention & Prioritized Queue */}
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-purple-100/70 p-6 shadow-card space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-purple-600" />
+              Needs Attention Triage
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-800 font-bold font-mono">
+              {needsAttention.length} Pending Actions
+            </span>
           </div>
-
-          <p className="text-xs text-slate-500">
-            Ranked by urgency: Critical → High → Medium → Low. Immediate action required to prevent shipment delays.
-          </p>
-
-          <div className="space-y-3">
-            {needsAttention.length === 0 ? (
-              <div className="py-8 text-center text-slate-500 text-xs">
-                No active inventory exceptions detected. Facility is operating within normal variance.
-              </div>
-            ) : (
-              needsAttention.map((exc) => (
-                <div
-                  key={exc.id}
-                  onClick={() => navigate(`/exceptions/${exc.id}`)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    exc.severity === 'CRITICAL'
-                      ? 'bg-rose-50/50 border-rose-200 hover:border-rose-300'
-                      : exc.severity === 'HIGH'
-                      ? 'bg-amber-50/40 border-amber-200 hover:border-amber-300'
-                      : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
-                  }`}
-                >
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={getSeverityBadgeVariant(exc.severity)} size="sm">
-                        {exc.severity}
-                      </Badge>
-                      <span className="font-mono text-xs font-bold text-slate-900">
-                        {exc.exceptionNumber}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-800">
-                        {exc.product?.name} ({exc.sku})
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-600 line-clamp-1">{exc.notes}</p>
-
-                    <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                      <span>{exc.warehouse?.name} / {exc.location?.name}</span>
-                      <span>•</span>
-                      <Badge variant={getStatusBadgeVariant(exc.status)} size="sm">
-                        {exc.status}
-                      </Badge>
-                      {exc.owner && (
-                        <>
-                          <span>•</span>
-                          <span>Owner: {exc.owner.name}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/exceptions/${exc.id}`);
-                      }}
-                      className="px-3.5 py-1.5 bg-slate-900 group-hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
-                    >
-                      <span>Investigate</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          <button
+            onClick={() => navigate('/exceptions')}
+            className="text-xs font-semibold text-purple-700 hover:text-purple-900 flex items-center gap-1"
+          >
+            View All Exceptions <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* Right Col: Inventory Confidence Card */}
-        <div className="space-y-6">
-          <ConfidenceGauge confidence={confidence} />
+        <p className="text-xs text-slate-500">
+          Prioritized strictly by operational urgency: Critical Discrepancies $\rightarrow$ High-Risk Variances $\rightarrow$ Negative Stock $\rightarrow$ Low Stock Reorder Thresholds.
+        </p>
 
-          {/* Quick Demo Scenario Highlight Card */}
-          <div className="bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-xl p-5 border border-slate-800 shadow-md space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400">
-                Core Demo Highlight
-              </span>
-              <span className="text-xs font-mono font-bold text-slate-400">INC-024</span>
+        <div className="space-y-3 pt-1">
+          {needsAttention.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-xs">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
+              <span>All warehouse inventory locations are currently within tolerance. No active exceptions detected.</span>
             </div>
-            <h3 className="text-sm font-bold text-white">
-              Steel Rods Discrepancy & Downstream Impact
-            </h3>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              System: 100 kg • Physical: 83 kg (-17 kg variance). 2 active delivery orders at risk with a 53-unit potential shortage.
-            </p>
-            <div className="pt-2">
-              <button
-                onClick={() => {
-                  const steelExc = needsAttention.find((e) => e.sku === 'SR001' || e.exceptionNumber === 'INC-024');
-                  if (steelExc) navigate(`/exceptions/${steelExc.id}`);
-                  else navigate('/exceptions');
-                }}
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold text-center transition-colors shadow-sm"
+          ) : (
+            needsAttention.map((exc) => (
+              <div
+                key={exc.id}
+                onClick={() => navigate(`/exceptions/${exc.id}`)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
+                  exc.severity === 'CRITICAL'
+                    ? 'bg-rose-50/40 border-rose-200/80 hover:border-rose-300 hover:shadow-sm'
+                    : exc.severity === 'HIGH'
+                    ? 'bg-pink-50/30 border-pink-200/80 hover:border-pink-300 hover:shadow-sm'
+                    : 'bg-purple-50/20 border-purple-100 hover:border-purple-200 hover:shadow-sm'
+                }`}
               >
-                Inspect INC-024 Incident Flow →
-              </button>
-            </div>
-          </div>
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={getSeverityBadgeVariant(exc.severity)} size="sm">
+                      {exc.severity}
+                    </Badge>
+                    <span className="font-mono text-xs font-bold text-slate-900">
+                      {exc.exceptionNumber}
+                    </span>
+                    <span className="text-xs font-bold text-purple-950">
+                      {exc.product?.name} ({exc.sku})
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 line-clamp-1">{exc.notes}</p>
+
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
+                    <span>
+                      Facility: <strong>{exc.warehouse?.name}</strong> / {exc.location?.name}
+                    </span>
+                    <span>•</span>
+                    <Badge variant={getStatusBadgeVariant(exc.status)} size="sm">
+                      {exc.status}
+                    </Badge>
+                    {exc.owner && (
+                      <>
+                        <span>•</span>
+                        <span>Investigator: <strong>{exc.owner.name}</strong></span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/exceptions/${exc.id}`);
+                    }}
+                    className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 group-hover:scale-[1.02]"
+                  >
+                    <span>Investigate</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Bottom Section: Recent Stock Movements Ledger Feed */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
+      {/* Live Stock Movement Ledger Feed */}
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-purple-100/70 p-6 shadow-card space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-slate-500" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+            <Clock className="w-4 h-4 text-purple-600" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
               Live Stock Movement Ledger
             </h3>
           </div>
           <button
             onClick={() => navigate('/ledger')}
-            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+            className="text-xs font-semibold text-purple-700 hover:text-purple-900 flex items-center gap-1"
           >
             View Complete Ledger ({metrics.totalStock} items) <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -298,21 +372,21 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500 border-y border-slate-200 uppercase font-semibold">
+            <thead className="bg-purple-50/50 text-slate-500 border-y border-purple-100 uppercase font-semibold">
               <tr>
-                <th className="py-2.5 px-3">Timestamp</th>
-                <th className="py-2.5 px-3">Operation</th>
-                <th className="py-2.5 px-3">Reference</th>
-                <th className="py-2.5 px-3">Product (SKU)</th>
-                <th className="py-2.5 px-3">Source → Destination</th>
-                <th className="py-2.5 px-3 text-right">Quantity Change</th>
-                <th className="py-2.5 px-3 text-right">Balance After</th>
+                <th className="py-3 px-3.5">Timestamp</th>
+                <th className="py-3 px-3.5">Operation</th>
+                <th className="py-3 px-3.5">Reference</th>
+                <th className="py-3 px-3.5">Product (SKU)</th>
+                <th className="py-3 px-3.5">Source → Destination</th>
+                <th className="py-3 px-3.5 text-right">Quantity Change</th>
+                <th className="py-3 px-3.5 text-right">Balance After</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-purple-50">
               {recentMovements.map((m) => (
-                <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-2 px-3 font-mono text-slate-500">
+                <tr key={m.id} className="hover:bg-purple-50/40 transition-colors">
+                  <td className="py-2.5 px-3.5 font-mono text-slate-500">
                     {new Date(m.timestamp).toLocaleString([], {
                       month: 'short',
                       day: 'numeric',
@@ -320,18 +394,18 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
                       minute: '2-digit',
                     })}
                   </td>
-                  <td className="py-2 px-3">
-                    <span className="font-semibold text-slate-800">{m.operation}</span>
+                  <td className="py-2.5 px-3.5">
+                    <span className="font-bold text-slate-800">{m.operation}</span>
                   </td>
-                  <td className="py-2 px-3 font-mono font-bold text-slate-900">{m.referenceId}</td>
-                  <td className="py-2 px-3">
-                    <span className="font-medium text-slate-800">{m.product?.name}</span>{' '}
+                  <td className="py-2.5 px-3.5 font-mono font-bold text-purple-700">{m.referenceId}</td>
+                  <td className="py-2.5 px-3.5">
+                    <span className="font-semibold text-slate-800">{m.product?.name}</span>{' '}
                     <span className="font-mono text-slate-400">({m.sku})</span>
                   </td>
-                  <td className="py-2 px-3 text-slate-600">
+                  <td className="py-2.5 px-3.5 text-slate-600">
                     {m.sourceName || '—'} → {m.destName || '—'}
                   </td>
-                  <td className="py-2 px-3 text-right font-mono font-bold">
+                  <td className="py-2.5 px-3.5 text-right font-mono font-bold">
                     <span
                       className={
                         m.quantityChange > 0
@@ -344,7 +418,7 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ navigate, onOpenCoun
                       {m.quantityChange > 0 ? `+${m.quantityChange}` : m.quantityChange}
                     </span>
                   </td>
-                  <td className="py-2 px-3 text-right font-mono text-slate-700 font-semibold">
+                  <td className="py-2.5 px-3.5 text-right font-mono text-slate-800 font-bold">
                     {m.balanceAfter}
                   </td>
                 </tr>

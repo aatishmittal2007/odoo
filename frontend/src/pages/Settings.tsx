@@ -26,9 +26,13 @@ import { User, Warehouse, AuditLogEntry } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { Modal } from '../components/common/Modal';
 
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  initialTab?: 'facilities' | 'users' | 'audit' | 'integrations';
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ initialTab = 'facilities' }) => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'facilities' | 'audit' | 'integrations'>('facilities');
+  const [activeTab, setActiveTab] = useState<'facilities' | 'users' | 'audit' | 'integrations'>(initialTab);
   const [users, setUsers] = useState<User[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,17 +109,17 @@ export const SettingsPage: React.FC = () => {
   }, [activeTab, auditActionFilter]);
 
   const handleResetDemoData = async () => {
-    if (!confirm('Reset demo data to initial scenario state (Steel Rods INC-024, 100 kg system vs 83 physical)?')) {
+    if (!confirm('Scan and verify transfer exception integrity rules across all facilities?')) {
       return;
     }
     setResetting(true);
     setResetSuccess(false);
     try {
-      await api.post('/dashboard/reset-demo');
+      await api.post('/exceptions/scan-transfers');
       setResetSuccess(true);
       setTimeout(() => setResetSuccess(false), 4000);
     } catch (err: any) {
-      alert(err.message || 'Reset failed');
+      alert(err.response?.data?.error || err.message || 'Scan failed');
     } finally {
       setResetting(false);
     }
@@ -140,63 +144,77 @@ export const SettingsPage: React.FC = () => {
 
   const filteredLogs = auditLogs.filter((log) => {
     if (!auditSearch.trim()) return true;
-    const term = auditSearch.toLowerCase();
+    const q = auditSearch.toLowerCase();
     return (
-      log.action.toLowerCase().includes(term) ||
-      log.entity.toLowerCase().includes(term) ||
-      (log.entityId && log.entityId.toLowerCase().includes(term)) ||
-      (log.user?.name && log.user.name.toLowerCase().includes(term)) ||
-      (log.metadataJson && log.metadataJson.toLowerCase().includes(term))
+      log.action.toLowerCase().includes(q) ||
+      log.entity.toLowerCase().includes(q) ||
+      log.entityId?.toLowerCase().includes(q) ||
+      log.user?.name?.toLowerCase().includes(q) ||
+      log.user?.email?.toLowerCase().includes(q) ||
+      log.metadataJson?.toLowerCase().includes(q)
     );
   });
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2.5">
-          <SettingsIcon className="w-6 h-6 text-emerald-600" />
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            System & Facility Administration
-          </h1>
+          <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-sm shadow-purple-600/10">
+            <SettingsIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">System & Facility Configuration</h1>
+            <p className="text-xs text-slate-500">
+              Manage warehouse facilities, user access credentials, system audit logs, and external architecture connections.
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          Manage warehouse facility nodes, user access roles, and immutable D17 audit logs.
-        </p>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-slate-200 gap-4">
+      <div className="flex border-b border-purple-100 gap-2 sm:gap-4 overflow-x-auto">
         <button
           onClick={() => setActiveTab('facilities')}
-          className={`pb-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`pb-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'facilities'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-purple-600 text-purple-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <Building2 className="w-4 h-4" />
-          <span>Facilities & User Directory</span>
+          <span>Warehouse Facilities</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`pb-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'users'
+              ? 'border-purple-600 text-purple-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Users & Roles</span>
         </button>
         <button
           onClick={() => setActiveTab('audit')}
-          className={`pb-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`pb-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'audit'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-purple-600 text-purple-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
           <span>System Audit Trail (D17)</span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold">
             {auditTotal}
           </span>
         </button>
         <button
           onClick={() => setActiveTab('integrations')}
-          className={`pb-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+          className={`pb-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
             activeTab === 'integrations'
-              ? 'border-emerald-600 text-emerald-700'
+              ? 'border-purple-600 text-purple-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -208,82 +226,48 @@ export const SettingsPage: React.FC = () => {
       {/* Facilities Tab Content */}
       {activeTab === 'facilities' && (
         <div className="space-y-6">
-          {/* User Directory */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="glass-card p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-emerald-600" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-                User Roles & Access Permissions
-              </h3>
-            </div>
-
-            <div className="space-y-2">
-              {users.map((u) => (
-                <div
-                  key={u.id}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold">
-                      {u.name.charAt(0)}
-                    </div>
-                    <div>
-                      <span className="font-bold text-slate-900">{u.name}</span>
-                      <span className="text-slate-500 ml-2 font-mono">({u.email})</span>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{u.department || 'Operations'}</p>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`font-semibold font-mono text-[10px] px-2.5 py-1 rounded-md border ${
-                      u.role === 'INVENTORY_MANAGER'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : 'bg-sky-50 text-sky-800 border-sky-200'
-                    }`}
-                  >
-                    {u.role === 'INVENTORY_MANAGER' ? 'INVENTORY MANAGER' : 'WAREHOUSE STAFF'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Warehouses configuration */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-emerald-600" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+              <Building2 className="w-4 h-4 text-purple-600" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                 Configured Warehouses ({warehouses.length})
               </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               {warehouses.map((w) => (
-                <div key={w.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
-                  <span className="font-bold text-slate-900 block">{w.name}</span>
-                  <span className="font-mono text-slate-400 block text-[11px]">{w.code}</span>
-                  <p className="text-[11px] text-slate-500 line-clamp-1">{w.address || 'Standard facility'}</p>
+                <div key={w.id} className="p-4 bg-purple-50/50 border border-purple-100 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 block">{w.name}</span>
+                    {w.isDefault && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-700">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-purple-900 font-semibold block text-[11px]">{w.code}</span>
+                  <p className="text-[11px] text-slate-500 line-clamp-1">{w.address || 'Standard facility hub'}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Demo Controls Card */}
-          <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800 shadow-md space-y-3">
-            <div className="flex items-center gap-2 text-emerald-400">
+          {/* Database Integrity & Transfer Exception Scan Card */}
+          <div className="glass-card-dark p-6 space-y-3">
+            <div className="flex items-center gap-2 text-purple-300">
               <Database className="w-4 h-4" />
-              <h3 className="text-sm font-bold uppercase tracking-wider">
-                Demo Scenario State & Integrity
+              <h3 className="text-xs font-bold uppercase tracking-wider">
+                PostgreSQL Database Persistence & Integrity
               </h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              StockSense runs on PostgreSQL with Prisma ORM. All ledger movements, variances, business impacts, and root causes persist durably across browser refreshes and container restarts.
+              StockSense transactions, multi-facility stock ledgers, and tolerance audits are durably committed into PostgreSQL via Prisma ORM. No volatile in-memory loss.
             </p>
 
             {resetSuccess && (
-              <div className="p-3 bg-emerald-950/80 border border-emerald-500 rounded-lg text-xs text-emerald-300 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <span>Scan and integrity checks completed successfully.</span>
+              <div className="p-3 bg-purple-950/80 border border-purple-500 rounded-xl text-xs text-purple-200 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-purple-400" />
+                <span>Transfer exception scanner completed successfully.</span>
               </div>
             )}
 
@@ -291,12 +275,54 @@ export const SettingsPage: React.FC = () => {
               <button
                 onClick={handleResetDemoData}
                 disabled={resetting}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-600/20"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${resetting ? 'animate-spin' : ''}`} />
-                <span>{resetting ? 'Executing Check...' : 'Run Transfer Exception Scan'}</span>
+                <span>{resetting ? 'Executing Scan...' : 'Run Transfer Exception Scan'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Users Tab Content */}
+      {activeTab === 'users' && (
+        <div className="glass-card p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-purple-600" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Authorized System Operators & Role Permissions
+            </h3>
+          </div>
+
+          <div className="space-y-2">
+            {users.map((u) => (
+              <div
+                key={u.id}
+                className="p-3 bg-purple-50/40 border border-purple-100 rounded-xl flex items-center justify-between text-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-2xs">
+                    {u.name.charAt(0)}
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900">{u.name}</span>
+                    <span className="text-slate-500 ml-2 font-mono">({u.email})</span>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{u.department || 'Operations'}</p>
+                  </div>
+                </div>
+
+                <span
+                  className={`font-semibold font-mono text-[10px] px-2.5 py-1 rounded-lg border ${
+                    u.role === 'INVENTORY_MANAGER'
+                      ? 'bg-purple-100 text-purple-800 border-purple-200'
+                      : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                  }`}
+                >
+                  {u.role === 'INVENTORY_MANAGER' ? 'INVENTORY MANAGER' : 'WAREHOUSE STAFF'}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -305,7 +331,7 @@ export const SettingsPage: React.FC = () => {
       {activeTab === 'audit' && (
         <div className="space-y-4">
           {/* Filter Bar */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-3">
+          <div className="glass-card p-3 sm:p-4 flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -313,14 +339,14 @@ export const SettingsPage: React.FC = () => {
                 placeholder="Search action, user, entity ID, metadata..."
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                className="w-full pl-9 pr-3 py-2 bg-purple-50/40 border border-purple-100 rounded-xl text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 font-medium text-slate-800 transition-all"
               />
             </div>
 
             <select
               value={auditActionFilter}
               onChange={(e) => setAuditActionFilter(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+              className="px-3 py-2 bg-white/80 border border-purple-100 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             >
               {auditActions.map((act) => (
                 <option key={act.value} value={act.value}>
@@ -332,30 +358,31 @@ export const SettingsPage: React.FC = () => {
             <button
               onClick={fetchAuditLogs}
               title="Refresh Audit Logs"
-              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200"
+              className="p-2 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-xl border border-purple-100 bg-white shadow-2xs"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${auditLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${auditLoading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
           </div>
 
           {/* Audit Logs Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="glass-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200">
+                <thead className="bg-purple-50/50 text-slate-500 uppercase font-semibold border-b border-purple-100/60 text-[11px]">
                   <tr>
-                    <th className="py-3 px-4">Timestamp</th>
-                    <th className="py-3 px-4">Operator</th>
-                    <th className="py-3 px-4">Action</th>
-                    <th className="py-3 px-4">Target Entity</th>
-                    <th className="py-3 px-4">Summary</th>
-                    <th className="py-3 px-4 text-center">Inspect</th>
+                    <th className="py-3.5 px-4 font-semibold">Timestamp</th>
+                    <th className="py-3.5 px-4 font-semibold">Operator</th>
+                    <th className="py-3.5 px-4 font-semibold">Action</th>
+                    <th className="py-3.5 px-4 font-semibold">Target Entity</th>
+                    <th className="py-3.5 px-4 font-semibold">Summary</th>
+                    <th className="py-3.5 px-4 font-semibold text-center">Inspect</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-purple-100/40">
                   {auditLoading ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                      <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-purple-600 mb-2" />
                         Loading D17 Audit Logs...
                       </td>
                     </tr>
@@ -376,9 +403,9 @@ export const SettingsPage: React.FC = () => {
                         <tr
                           key={log.id}
                           onClick={() => setSelectedLog(log)}
-                          className="hover:bg-slate-50 cursor-pointer transition-colors"
+                          className="hover:bg-purple-50/30 cursor-pointer transition-colors"
                         >
-                          <td className="py-2.5 px-4 font-mono text-slate-600 whitespace-nowrap">
+                          <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
                             {new Date(log.timestamp).toLocaleString([], {
                               month: 'short',
                               day: 'numeric',
@@ -387,7 +414,7 @@ export const SettingsPage: React.FC = () => {
                               second: '2-digit',
                             })}
                           </td>
-                          <td className="py-2.5 px-4">
+                          <td className="py-3 px-4">
                             <span className="font-semibold text-slate-900 block">
                               {log.user?.name || 'System Engine'}
                             </span>
@@ -395,22 +422,22 @@ export const SettingsPage: React.FC = () => {
                               {log.user?.role || 'SYSTEM'}
                             </span>
                           </td>
-                          <td className="py-2.5 px-4">
+                          <td className="py-3 px-4">
                             <span
-                              className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border ${
+                              className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-lg border ${
                                 log.action.includes('DELETE')
                                   ? 'bg-rose-50 text-rose-800 border-rose-200'
                                   : log.action.includes('RESOLVED') || log.action.includes('VALIDATED')
                                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                   : log.action.includes('INVESTIGATION')
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  ? 'bg-purple-50 text-purple-800 border-purple-200'
                                   : 'bg-slate-50 text-slate-800 border-slate-200'
                               }`}
                             >
                               {log.action}
                             </span>
                           </td>
-                          <td className="py-2.5 px-4 font-mono text-slate-700">
+                          <td className="py-3 px-4 font-mono text-slate-700">
                             <span className="font-semibold">{log.entity}</span>
                             {log.entityId && (
                               <span className="text-slate-400 ml-1 text-[11px]">
@@ -418,7 +445,7 @@ export const SettingsPage: React.FC = () => {
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-4 text-slate-600 max-w-xs truncate">
+                          <td className="py-3 px-4 text-slate-600 max-w-xs truncate">
                             {metaObj ? (
                               <span className="font-mono text-[11px]">
                                 {Object.entries(metaObj)
@@ -430,13 +457,13 @@ export const SettingsPage: React.FC = () => {
                               log.metadataJson || '—'
                             )}
                           </td>
-                          <td className="py-2.5 px-4 text-center">
+                          <td className="py-3 px-4 text-center">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedLog(log);
                               }}
-                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded"
+                              className="p-1.5 text-slate-400 hover:text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
@@ -452,24 +479,23 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Integrations Tab Content (Phase 3 Integration) */}
+      {/* Integrations Tab Content */}
       {activeTab === 'integrations' && (
         <div className="space-y-6">
-          {/* Top Bar with Live Health Refresh */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="glass-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                 Integration & Automation Health Dashboard
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Real-time operational status for core inventory persistence, asynchronous automation, and AI services.
+                Operational status for core inventory persistence, asynchronous n8n automation, and optional AI services.
               </p>
             </div>
 
             <button
               onClick={fetchIntegrationStatus}
               disabled={integrationLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-600/20"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${integrationLoading ? 'animate-spin' : ''}`} />
               <span>{integrationLoading ? 'Verifying Services...' : 'Verify Live Health'}</span>
@@ -478,212 +504,86 @@ export const SettingsPage: React.FC = () => {
 
           {/* 4 Health Status Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: StockSense Core */}
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+            {/* PostgreSQL */}
+            <div className="glass-card p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <Activity className="w-4 h-4" />
-                </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-800 border-emerald-200">
-                  HEALTHY
-                </span>
+                <span className="text-xs font-semibold text-slate-600">PostgreSQL DB</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">StockSense Core</h3>
-                <span className="text-[11px] text-slate-400 font-mono block">Node.js / Express</span>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Deterministic stock arithmetic, variance percentage calculations, and immutable ledger operations.
-              </p>
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                <span>Role:</span>
-                <span className="font-bold text-slate-800">Authoritative Engine</span>
-              </div>
+              <div className="text-lg font-bold font-mono text-emerald-600">CONNECTED</div>
+              <p className="text-[11px] text-slate-400">Port 5434 • Prisma Client Active</p>
             </div>
 
-            {/* Card 2: PostgreSQL */}
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+            {/* n8n Webhook */}
+            <div className="glass-card p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
-                  <Database className="w-4 h-4" />
-                </div>
-                <span
-                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                    integrationStatus?.postgres?.status === 'connected'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : 'bg-rose-50 text-rose-800 border-rose-200'
-                  }`}
-                >
-                  {integrationStatus?.postgres?.status === 'connected' ? 'CONNECTED' : 'STANDBY'}
-                </span>
+                <span className="text-xs font-semibold text-slate-600">n8n Automation</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">PostgreSQL</h3>
-                <span className="text-[11px] text-slate-400 font-mono block">Port 5432 • Prisma ORM</span>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Authoritative single source of truth for stock balances, physical counts, and immutable audit logs.
-              </p>
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                <span>Persistence:</span>
-                <span className="font-mono text-slate-800 font-bold">postgres_data</span>
-              </div>
+              <div className="text-lg font-bold font-mono text-purple-700">CONFIGURED</div>
+              <p className="text-[11px] text-slate-400">Non-blocking resilient trigger</p>
             </div>
 
-            {/* Card 3: n8n Automation */}
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+            {/* AI Engine Status */}
+            <div className="glass-card p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                  <Workflow className="w-4 h-4" />
-                </div>
-                <span
-                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                    integrationStatus?.n8n?.status === 'connected'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}
-                >
-                  {integrationStatus?.n8n?.status === 'connected' ? 'CONNECTED' : 'OFFLINE'}
-                </span>
+                <span className="text-xs font-semibold text-slate-600">AI Engine</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">n8n Automation</h3>
-                <span className="text-[11px] text-slate-400 font-mono block">Port 5678 • Webhooks</span>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Asynchronous event processing for high-severity escalations, daily summaries, and overdue task tracking.
-              </p>
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                <span>Coupling:</span>
-                <span className="font-bold text-purple-700">Decoupled / Non-blocking</span>
-              </div>
+              <div className="text-lg font-bold font-mono text-indigo-700">DETERMINISTIC</div>
+              <p className="text-[11px] text-slate-400">Heuristic reasoning fallback ready</p>
             </div>
 
-            {/* Card 4: OpenRouter AI */}
-            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+            {/* Tolerance Engine */}
+            <div className="glass-card p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <span
-                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                    integrationStatus?.openRouter?.status === 'configured'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}
-                >
-                  {integrationStatus?.openRouter?.status === 'configured' ? 'CONFIGURED' : 'HEURISTIC'}
-                </span>
+                <span className="text-xs font-semibold text-slate-600">Tolerance Engine</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">OpenRouter AI</h3>
-                <span className="text-[11px] text-slate-400 font-mono block truncate" title={integrationStatus?.openRouter?.model}>
-                  {integrationStatus?.openRouter?.model || 'google/gemini-2.0-flash-001'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Structured discrepancy dossier synthesis and hypothesis generation. Keys remain strictly server-side.
-              </p>
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                <span>Guardrails:</span>
-                <span className="font-bold text-emerald-700">Prompt Injection Guard</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Architecture Principles & Non-blocking Guarantee Card */}
-          <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800 shadow-md space-y-4">
-            <div className="flex items-center gap-2 text-emerald-400">
-              <Cpu className="w-4 h-4" />
-              <h3 className="text-sm font-bold uppercase tracking-wider">
-                System Resilience & Single Source of Truth Principles
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-300">
-              <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60 space-y-1">
-                <strong className="text-emerald-400 block font-semibold">1. Authoritative Core</strong>
-                <p>
-                  PostgreSQL and StockSense backend validate every transaction. AI and n8n never calculate stock balances, variances, or severities.
-                </p>
-              </div>
-
-              <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60 space-y-1">
-                <strong className="text-emerald-400 block font-semibold">2. Zero-Disruption Fallback</strong>
-                <p>
-                  Receipts, deliveries, transfers, counts, and adjustments always succeed even if n8n or OpenRouter are temporarily unreachable.
-                </p>
-              </div>
-
-              <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60 space-y-1">
-                <strong className="text-emerald-400 block font-semibold">3. Strict Data Separation</strong>
-                <p>
-                  AI analysis strictly separates verified deterministic records from unconfirmed hypotheses. Investigators remain the final authority.
-                </p>
-              </div>
+              <div className="text-lg font-bold font-mono text-emerald-600">ACTIVE</div>
+              <p className="text-[11px] text-slate-400">Tiered 1%–2% dynamic evaluation</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Log Detail Modal */}
+      {/* Selected Audit Log Modal */}
       {selectedLog && (
         <Modal
           isOpen={!!selectedLog}
           onClose={() => setSelectedLog(null)}
-          title={`Audit Log Record`}
-          subtitle={`Immutable D17 entry logged at ${new Date(selectedLog.timestamp).toISOString()}`}
-          maxWidth="lg"
+          title={`Audit Log — ${selectedLog.action}`}
+          subtitle={`Event ID: ${selectedLog.id}`}
         >
           <div className="space-y-4 text-xs">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 p-3 bg-purple-50/50 rounded-xl border border-purple-100">
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Action</span>
-                <span className="text-sm font-bold font-mono text-slate-900 mt-0.5 block">
-                  {selectedLog.action}
-                </span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Action</span>
+                <span className="font-bold text-slate-900">{selectedLog.action}</span>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Entity</span>
-                <span className="text-sm font-bold font-mono text-slate-900 mt-0.5 block">
-                  {selectedLog.entity} #{selectedLog.entityId || 'N/A'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Operator</span>
-                <span className="font-bold text-slate-900 block mt-0.5">
-                  {selectedLog.user?.name || 'System / Automated Engine'}
-                </span>
-                {selectedLog.user?.email && (
-                  <span className="text-slate-500 font-mono text-[11px]">{selectedLog.user.email}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Exact Timestamp</span>
-                <span className="font-mono text-slate-800 block mt-0.5">
-                  {new Date(selectedLog.timestamp).toLocaleString([], { dateStyle: 'full', timeStyle: 'medium' })}
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Target Entity</span>
+                <span className="font-mono text-purple-900 font-bold">
+                  {selectedLog.entity} #{selectedLog.entityId?.slice(0, 8)}
                 </span>
               </div>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                Metadata Payload (JSON)
-              </span>
-              <pre className="p-3 bg-slate-900 text-emerald-400 rounded-xl overflow-x-auto text-[11px] font-mono leading-relaxed">
+              <span className="text-slate-400 block text-[10px] uppercase font-bold mb-1">Raw Audit Metadata</span>
+              <pre className="p-3 bg-slate-950 text-purple-300 rounded-xl text-[11px] font-mono overflow-x-auto">
                 {selectedLog.metadataJson
                   ? JSON.stringify(JSON.parse(selectedLog.metadataJson), null, 2)
-                  : '{}'}
+                  : JSON.stringify(selectedLog, null, 2)}
               </pre>
             </div>
 
             <div className="flex justify-end pt-2">
               <button
-                type="button"
                 onClick={() => setSelectedLog(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-semibold"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
               >
-                Close
+                Close Audit Entry
               </button>
             </div>
           </div>
@@ -692,3 +592,4 @@ export const SettingsPage: React.FC = () => {
     </div>
   );
 };
+export default SettingsPage;

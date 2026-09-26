@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { InventoryOpsController } from '../controllers/inventory-ops.controller';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -24,7 +24,7 @@ router.post('/transfers/:id/complete', authenticateToken, InventoryOpsController
 
 // Adjustments
 router.get('/adjustments', authenticateToken, InventoryOpsController.listAdjustments);
-router.post('/adjustments', authenticateToken, InventoryOpsController.createAdjustment);
+router.post('/adjustments', authenticateToken, requireRole(['INVENTORY_MANAGER', 'ADMIN']), InventoryOpsController.createAdjustment);
 
 // Physical Counts
 router.get('/physical-counts', authenticateToken, InventoryOpsController.listCounts);

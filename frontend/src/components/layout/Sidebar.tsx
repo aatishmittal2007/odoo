@@ -1,25 +1,32 @@
 import React from 'react';
 import {
+  Radio,
   ShieldAlert,
   Boxes,
+  Layers,
+  Warehouse as WarehouseIcon,
+  MapPin,
   ArrowDownToLine,
   ArrowUpFromLine,
   ArrowLeftRight,
   SlidersHorizontal,
   ClipboardCheck,
-  Activity,
+  SearchCode,
+  CheckSquare,
+  PieChart,
+  CheckCircle2,
   ScrollText,
-  Warehouse as WarehouseIcon,
-  MapPin,
-  Settings,
-  Users,
+  Activity,
+  Sliders,
   Building2,
-  Layers,
+  Users,
+  Settings,
   LogOut,
-  Radio,
+  ChevronRight,
   UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface SidebarProps {
   currentPath: string;
@@ -34,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, navigate }) => {
       title: 'CONTROL',
       items: [
         { label: 'Control Tower', path: '/', icon: Radio },
-        { label: 'Exceptions', path: '/exceptions', icon: ShieldAlert, badge: 'Active' },
+        { label: 'Exceptions', path: '/exceptions', icon: ShieldAlert, badge: 'Live' },
       ],
     },
     {
@@ -53,77 +60,83 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, navigate }) => {
         { label: 'Deliveries', path: '/deliveries', icon: ArrowUpFromLine },
         { label: 'Internal Transfers', path: '/transfers', icon: ArrowLeftRight },
         { label: 'Adjustments', path: '/adjustments', icon: SlidersHorizontal },
+      ],
+    },
+    {
+      title: 'VERIFICATION',
+      items: [
         { label: 'Physical Counts', path: '/physical-counts', icon: ClipboardCheck },
+      ],
+    },
+    {
+      title: 'INVESTIGATION',
+      items: [
+        { label: 'Investigations', path: '/investigations', icon: SearchCode },
+        { label: 'My Tasks', path: '/tasks', icon: CheckSquare },
+        { label: 'Root Causes', path: '/root-causes', icon: PieChart },
+        { label: 'Resolutions', path: '/resolutions', icon: CheckCircle2 },
       ],
     },
     {
       title: 'INSIGHTS',
       items: [
-        { label: 'Process Health', path: '/process-health', icon: Activity },
         { label: 'Stock Ledger', path: '/ledger', icon: ScrollText },
+        { label: 'Process Health', path: '/process-health', icon: Activity },
       ],
     },
     {
-      title: 'SETTINGS',
+      title: 'CONFIGURATION',
       items: [
-        { label: 'Facility Settings', path: '/settings/warehouse', icon: Building2 },
-        { label: 'Users & Roles', path: '/settings/users', icon: Users },
+        { label: 'Reordering Rules', path: '/reordering-rules', icon: Sliders },
+        { label: 'Facility Settings', path: '/warehouse-settings', icon: Building2 },
+        { label: 'Users & Roles', path: '/users-roles', icon: Users },
+        { label: 'System Settings', path: '/settings', icon: Settings },
       ],
     },
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800 select-none">
+    <aside className="w-64 bg-[#0d0b18] text-slate-300 flex flex-col shrink-0 h-screen sticky top-0 border-r border-purple-950/40 select-none z-20 shadow-2xl">
       {/* Brand Header */}
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-800 bg-slate-950/60">
-        <div className="h-9 w-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-900/40">
-          <ShieldAlert className="w-5 h-5 text-emerald-100" />
-        </div>
-        <div>
-          <span className="text-base font-bold tracking-wider text-white">
-            STOCK<span className="text-emerald-400">SENSE</span>
-          </span>
-          <span className="block text-[10px] uppercase font-mono tracking-widest text-slate-400">
-            Reality & Exception OS
-          </span>
-        </div>
+      <div className="h-16 flex items-center px-5 border-b border-purple-950/50 bg-[#090713]">
+        <BrandLogo size="md" inverted={true} />
       </div>
 
       {/* Navigation Sections */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
+      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-thin scrollbar-thumb-purple-950">
         {navSections.map((section, idx) => (
           <div key={idx} className="space-y-1">
-            <h4 className="px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <h4 className="px-3 text-[10px] font-bold text-purple-400/60 uppercase tracking-widest">
               {section.title}
             </h4>
-            <div className="space-y-0.5 pt-1">
+            <div className="space-y-0.5 pt-0.5">
               {section.items.map((item, itemIdx) => {
                 const Icon = item.icon;
                 const isActive =
                   item.path === '/'
                     ? currentPath === '/'
-                    : currentPath.startsWith(item.path);
+                    : currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
 
                 return (
                   <button
                     key={itemIdx}
                     onClick={() => navigate(item.path)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
                       isActive
-                        ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
-                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                        ? 'bg-purple-600/20 text-purple-200 border border-purple-500/40 shadow-sm shadow-purple-500/10'
+                        : 'text-slate-400 hover:text-white hover:bg-purple-950/30'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <Icon
-                        className={`w-4 h-4 ${
-                          isActive ? 'text-emerald-400' : 'text-slate-400'
+                        className={`w-4 h-4 transition-colors ${
+                          isActive ? 'text-purple-400' : 'text-slate-400 group-hover:text-purple-300'
                         }`}
                       />
                       <span>{item.label}</span>
                     </div>
                     {item.badge && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30">
                         {item.badge}
                       </span>
                     )}
@@ -135,52 +148,55 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, navigate }) => {
         ))}
       </div>
 
-      {/* Persona Role Switcher & User Profile */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/70">
-        <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-xs font-bold text-white">
+      {/* Persona Role Switcher & User Profile Footer */}
+      <div className="p-3 border-t border-purple-950/60 bg-[#090713]">
+        <div className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-900/40">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm shadow-purple-600/30">
                 {user?.name?.charAt(0) || 'U'}
               </div>
               <div className="overflow-hidden">
                 <div className="text-xs font-semibold text-white truncate">{user?.name || 'User'}</div>
-                <div className="text-[10px] text-slate-400 font-mono truncate">
-                  {user?.role === 'INVENTORY_MANAGER' ? 'Manager' : 'Staff'}
+                <div className="text-[10px] text-purple-300/70 font-mono truncate">
+                  {user?.role === 'INVENTORY_MANAGER' ? 'Inventory Manager' : 'Warehouse Staff'}
                 </div>
               </div>
             </div>
             <button
               onClick={logout}
               title="Logout"
-              className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-pink-400 hover:bg-pink-500/10 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Quick 1-click Role Switcher */}
-          <div className="flex gap-1 pt-1.5 border-t border-slate-800/80">
-            <button
-              onClick={() => switchRole('INVENTORY_MANAGER')}
-              className={`flex-1 py-1 px-1.5 rounded text-[10px] font-semibold text-center transition-all ${
-                user?.role === 'INVENTORY_MANAGER'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Manager View
-            </button>
-            <button
-              onClick={() => switchRole('WAREHOUSE_STAFF')}
-              className={`flex-1 py-1 px-1.5 rounded text-[10px] font-semibold text-center transition-all ${
-                user?.role === 'WAREHOUSE_STAFF'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Staff View
-            </button>
+          {/* Quick Persona Switcher for Hackathon Testing */}
+          <div className="pt-2 border-t border-purple-900/30 flex items-center justify-between text-[10px]">
+            <span className="text-slate-400 font-medium">Role Simulator:</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => switchRole('INVENTORY_MANAGER')}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  user?.role === 'INVENTORY_MANAGER'
+                    ? 'bg-purple-600 text-white font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-purple-900/40'
+                }`}
+              >
+                Manager
+              </button>
+              <button
+                onClick={() => switchRole('WAREHOUSE_STAFF')}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  user?.role === 'WAREHOUSE_STAFF'
+                    ? 'bg-purple-600 text-white font-bold'
+                    : 'text-slate-400 hover:text-white hover:bg-purple-900/40'
+                }`}
+              >
+                Staff
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -49,3 +49,10 @@ Thumbs.db
 # Docker persistent data
 postgres_data/
 n8n_data/
+
+# Archives
+*.zip
+
+# Agent scratch / brain directories
+brain/
+.gemini/

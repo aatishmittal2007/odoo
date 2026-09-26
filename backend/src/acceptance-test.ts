@@ -202,7 +202,7 @@ async function runAcceptanceTests() {
   if (!persistedProd || persistedProd.exceptions[0]?.resolution?.rootCause !== 'Transfer error') {
     throw new Error('Acceptance Test 12 Failed: Data persistence mismatch.');
   }
-  console.log('✅ Acceptance Test 12 Passed: Complete relational persistence verified in SQLite/Prisma dev.db.');
+  console.log('✅ Acceptance Test 12 Passed: Complete relational persistence verified in PostgreSQL/Prisma database.');
 
   // Clean up acceptance test product to leave database pristine for user demo
   await prisma.exceptionResolution.deleteMany({ where: { exceptionId: createdException.id } });

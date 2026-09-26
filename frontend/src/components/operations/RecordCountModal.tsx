@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
-import { ClipboardCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ClipboardCheck, AlertTriangle, CheckCircle2, ShieldCheck, ShieldAlert, Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import { Warehouse, Location, Product } from '../../types';
 
@@ -104,12 +104,24 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
     fetchCurrentBalance();
   }, [selectedWarehouseId, selectedLocationId, selectedProductId]);
 
-  // Real-time calculation of variance and variance percentage
+  // Real-time calculation of variance and tolerance
   const physQtyNum = physicalQuantity === '' ? systemQuantity : parseFloat(physicalQuantity) || 0;
   const variance = physQtyNum - systemQuantity;
+  const absVariance = Math.abs(variance);
   const variancePercentage =
     systemQuantity !== 0 ? (variance / systemQuantity) * 100 : variance === 0 ? 0 : 100;
-  const hasDiscrepancy = variance !== 0;
+
+  // Frontend mirror of backend tolerance rules
+  const computeAllowedTolerance = (sysQty: number) => {
+    const qty = Math.abs(sysQty);
+    if (qty <= 20) return { tier: '0–20 units', allowed: 1 };
+    if (qty <= 100) return { tier: '21–100 units', allowed: Math.max(2, qty * 0.02) };
+    if (qty <= 500) return { tier: '101–500 units', allowed: qty * 0.02 };
+    return { tier: '501+ units', allowed: qty * 0.01 };
+  };
+
+  const toleranceRule = computeAllowedTolerance(systemQuantity);
+  const isWithinTolerance = absVariance <= toleranceRule.allowed;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,12 +157,12 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Record Physical Inventory Count"
-      subtitle="Verify on-hand physical reality against system ledger balances"
+      subtitle="Audits on-hand stock and verifies mathematical tolerance bands"
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-medium">
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
             {error}
           </div>
         )}
@@ -162,7 +174,7 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
             <select
               value={selectedWarehouseId}
               onChange={(e) => setSelectedWarehouseId(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              className="w-full px-3 py-2 bg-white border border-purple-200/80 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-medium"
               required
             >
               {warehouses.map((w) => (
@@ -179,7 +191,7 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
             <select
               value={selectedLocationId}
               onChange={(e) => setSelectedLocationId(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              className="w-full px-3 py-2 bg-white border border-purple-200/80 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-medium"
               required
             >
               {locations.map((l) => (
@@ -200,7 +212,7 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
               setSelectedProductId(e.target.value);
               setPhysicalQuantity('');
             }}
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono"
+            className="w-full px-3 py-2 bg-white border border-purple-200/80 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-mono"
             required
           >
             {products.map((p) => (
@@ -212,19 +224,19 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
         </div>
 
         {/* Live System vs Physical Count Comparison */}
-        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-4 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-3.5">
+          <div className="grid grid-cols-2 gap-3.5">
             {/* System Quantity */}
-            <div className="p-3 bg-white border border-slate-200 rounded-lg text-center">
+            <div className="p-3.5 bg-white border border-purple-100/80 rounded-xl text-center shadow-xs">
               <span className="block text-[10px] uppercase font-bold text-slate-400">System Recorded Stock</span>
-              <span className="text-xl font-bold font-mono text-slate-900 mt-1 block">
-                {loadingBalance ? '...' : systemQuantity} {selectedProduct?.uom || 'units'}
+              <span className="text-2xl font-black font-mono text-purple-950 mt-1 block">
+                {loadingBalance ? '...' : systemQuantity} <span className="text-xs font-normal text-slate-500">{selectedProduct?.uom || 'units'}</span>
               </span>
             </div>
 
             {/* Physical Input */}
-            <div className="p-3 bg-white border border-slate-300 rounded-lg">
-              <label className="block text-[10px] uppercase font-bold text-emerald-700 text-center">
+            <div className="p-3.5 bg-white border border-purple-300 rounded-xl shadow-xs">
+              <label className="block text-[10px] uppercase font-bold text-purple-700 text-center">
                 Physical Verified Count
               </label>
               <input
@@ -233,38 +245,46 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
                 placeholder={String(systemQuantity)}
                 value={physicalQuantity}
                 onChange={(e) => setPhysicalQuantity(e.target.value)}
-                className="w-full text-center text-xl font-bold font-mono text-slate-900 focus:outline-none mt-1"
+                className="w-full text-center text-2xl font-black font-mono text-slate-900 focus:outline-none mt-1"
                 required
                 autoFocus
               />
             </div>
           </div>
 
-          {/* Real-time Variance Calculation */}
+          {/* Tolerance Engine Live Evaluation Card */}
           <div
-            className={`p-3 rounded-lg border flex items-center justify-between text-xs transition-colors ${
-              hasDiscrepancy
-                ? 'bg-rose-50 border-rose-200 text-rose-800'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-all ${
+              isWithinTolerance
+                ? 'bg-purple-100/60 border-purple-200 text-purple-900'
+                : 'bg-pink-50/80 border-pink-200 text-pink-950'
             }`}
           >
-            <div className="flex items-center gap-2">
-              {hasDiscrepancy ? (
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <div className="flex items-center gap-2.5">
+              {isWithinTolerance ? (
+                <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <ShieldAlert className="w-5 h-5 text-pink-600 shrink-0" />
               )}
-              <span className="font-semibold">
-                {hasDiscrepancy
-                  ? 'Discrepancy detected — An exception will be automatically created.'
-                  : 'Perfect match — Physical verification matches system ledger.'}
-              </span>
+              <div>
+                <span className="font-bold block">
+                  {isWithinTolerance
+                    ? 'WITHIN TOLERANCE — Reconciled automatically'
+                    : 'OUTSIDE TOLERANCE — Exception will be created'}
+                </span>
+                <span className="text-[11px] opacity-80">
+                  Allowed Variance: ±{toleranceRule.allowed.toFixed(1)} units ({toleranceRule.tier})
+                </span>
+              </div>
             </div>
-            <div className="font-mono font-bold text-right shrink-0">
-              <span className="text-sm">
-                Variance: {variance > 0 ? `+${variance}` : variance} ({variancePercentage.toFixed(1)}%)
-              </span>
+
+            <div className="font-mono font-black text-right shrink-0 text-sm">
+              Variance: {variance > 0 ? `+${variance}` : variance} ({variancePercentage.toFixed(1)}%)
             </div>
+          </div>
+
+          <div className="text-[11px] text-slate-500 px-1 italic">
+            * Note: Submitting this count records physical reality. It will <strong>NOT</strong> silently overwrite book inventory.
           </div>
         </div>
 
@@ -275,29 +295,29 @@ export const RecordCountModal: React.FC<RecordCountModalProps> = ({
           </label>
           <input
             type="text"
-            placeholder="e.g. Conducted during morning cycle count. Recounted twice."
+            placeholder="e.g. Conducted during morning cycle count on Rack A1."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            className="w-full px-3 py-2 bg-white border border-purple-200/80 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
           />
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-between pt-3 border-t border-purple-100/60">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+            className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all hover:scale-[1.01]"
           >
             <ClipboardCheck className="w-4 h-4" />
-            <span>{submitting ? 'Recording...' : 'Submit Physical Verification'}</span>
+            <span>{submitting ? 'Auditing...' : 'Submit Physical Verification'}</span>
           </button>
         </div>
       </form>

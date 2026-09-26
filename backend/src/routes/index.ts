@@ -11,9 +11,10 @@ import aiRoutes from './ai.routes';
 import integrationRoutes from './integration.routes';
 import internalRoutes from './internal.routes';
 import { InventoryOpsController } from '../controllers/inventory-ops.controller';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireRole } from '../middleware/auth';
 
 const router = Router();
+const MANAGER_ROLES = ['INVENTORY_MANAGER', 'ADMIN'];
 
 router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
@@ -48,7 +49,7 @@ router.get('/transfers/:id', authenticateToken, InventoryOpsController.getTransf
 router.post('/transfers/:id/complete', authenticateToken, InventoryOpsController.completeTransfer);
 
 router.get('/adjustments', authenticateToken, InventoryOpsController.listAdjustments);
-router.post('/adjustments', authenticateToken, InventoryOpsController.createAdjustment);
+router.post('/adjustments', authenticateToken, requireRole(MANAGER_ROLES), InventoryOpsController.createAdjustment);
 
 router.get('/physical-counts', authenticateToken, InventoryOpsController.listCounts);
 router.post('/physical-counts', authenticateToken, InventoryOpsController.recordCount);

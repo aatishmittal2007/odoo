@@ -1,17 +1,43 @@
 import React, { useState } from 'react';
-import { ShieldAlert, LogIn, UserCheck, KeyRound, CheckCircle2, ArrowRight } from 'lucide-react';
+import {
+  LogIn,
+  KeyRound,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Building,
+  Mail,
+  Lock,
+  User,
+  ShieldAlert,
+  ArrowRight,
+  Sparkles,
+  Layers,
+  Activity,
+  Check,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { Modal } from '../components/common/Modal';
+import { BrandLogo } from '../components/common/BrandLogo';
 
 export const Login: React.FC = () => {
   const { login, demoLogin } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>('login');
 
-  const [email, setEmail] = useState('manager@stocksense.io');
-  const [password, setPassword] = useState('password123');
+  // Form Fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  // Register Fields
   const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'INVENTORY_MANAGER' | 'WAREHOUSE_STAFF'>('INVENTORY_MANAGER');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,20 +51,55 @@ export const Login: React.FC = () => {
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
 
+  // Password strength check
+  const getPasswordStrength = (pwd: string) => {
+    if (!pwd) return { score: 0, label: '', color: '' };
+    let score = 0;
+    if (pwd.length >= 6) score++;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+    if (score <= 2) return { score: 1, label: 'Weak', color: 'bg-rose-500' };
+    if (score <= 4) return { score: 2, label: 'Medium', color: 'bg-amber-500' };
+    return { score: 3, label: 'Strong', color: 'bg-emerald-500' };
+  };
+
+  const passwordStrength = getPasswordStrength(password);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (tab === 'register') {
+      if (!acceptTerms) {
+        setError('Please accept the Terms of Service and Privacy Policy to continue.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
       if (tab === 'login') {
         await login(email, password);
       } else {
-        await api.post('/auth/register', { email, password, name, role });
+        await api.post('/auth/register', {
+          email,
+          password,
+          name,
+          role,
+          department: company ? `${company} Operations` : 'Warehouse Logistics',
+        });
         await login(email, password);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Authentication failed');
+      setError(err.response?.data?.error || err.message || 'Authentication failed. Please check credentials.');
     } finally {
       setLoading(false);
     }
@@ -62,8 +123,9 @@ export const Login: React.FC = () => {
     setForgotLoading(true);
     try {
       const res = await api.post('/auth/forgot-password', { email: forgotEmail });
-      setMockOtp(res.data.mockOtp);
-      setInputOtp(res.data.mockOtp); // Pre-fill mock OTP for smooth dev testing
+      const otpCode = res.data.devOtp || res.data.mockOtp;
+      setMockOtp(otpCode);
+      setInputOtp(otpCode); // Pre-fill in dev mode for seamless demo
       setForgotStep('verify');
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to request OTP');
@@ -96,163 +158,327 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
-        {/* Brand Header */}
-        <div className="bg-slate-950 p-6 text-center text-white border-b border-slate-800">
-          <div className="w-12 h-12 rounded-xl bg-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-md shadow-emerald-900/50">
-            <ShieldAlert className="w-7 h-7 text-emerald-100" />
-          </div>
-          <h1 className="text-xl font-bold tracking-wider">
-            STOCK<span className="text-emerald-400">SENSE</span>
-          </h1>
-          <p className="text-xs text-slate-400 font-mono uppercase tracking-widest mt-1">
-            Inventory Reality & Exception Management
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#faf9fe] flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+      {/* Soft Ambient Lavender Gradients */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-pink-300/20 rounded-full blur-3xl pointer-events-none" />
 
-        {/* 1-Click Demo Logins Banner */}
-        <div className="bg-slate-50 p-4 border-b border-slate-200 space-y-2">
-          <span className="block text-[10px] uppercase font-bold tracking-wider text-slate-500 text-center">
-            Instant 1-Click Demo Evaluation
-          </span>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleDemo('INVENTORY_MANAGER')}
-              disabled={loading}
-              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold text-center transition-colors shadow-2xs"
-            >
-              Login as Manager
-              <span className="block text-[10px] text-emerald-100 font-normal">Alex Mercer</span>
-            </button>
-            <button
-              onClick={() => handleDemo('WAREHOUSE_STAFF')}
-              disabled={loading}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold text-center transition-colors shadow-2xs"
-            >
-              Login as Staff
-              <span className="block text-[10px] text-slate-300 font-normal">Sam Rodriguez</span>
-            </button>
-          </div>
-        </div>
+      {/* Main Split Authentication Container */}
+      <div className="w-full max-w-4xl bg-white/90 backdrop-blur-xl rounded-3xl shadow-card border border-purple-100 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10 animate-fadeIn">
+        {/* Left Side: Brand Visual Atmosphere (Hero Panel) */}
+        <div className="hidden md:flex md:col-span-5 bg-gradient-to-br from-[#120f24] via-[#1a1438] to-[#2d1b4e] p-8 text-white flex-col justify-between relative overflow-hidden border-r border-purple-900/40">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent pointer-events-none" />
 
-        {/* Tab Selector */}
-        <div className="flex border-b border-slate-200">
-          <button
-            onClick={() => setTab('login')}
-            className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-all ${
-              tab === 'login'
-                ? 'border-emerald-600 text-emerald-600 bg-white'
-                : 'border-transparent text-slate-400 hover:text-slate-600 bg-slate-50/50'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setTab('register')}
-            className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-all ${
-              tab === 'register'
-                ? 'border-emerald-600 text-emerald-600 bg-white'
-                : 'border-transparent text-slate-400 hover:text-slate-600 bg-slate-50/50'
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
-
-        {/* Auth Form */}
-        <div className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-medium">
-              {error}
+          <div>
+            <BrandLogo size="lg" inverted={true} />
+            <div className="mt-8 space-y-4">
+              <h2 className="text-xl font-bold leading-tight tracking-tight text-white">
+                Know what your system says.
+                <span className="block text-purple-400">Know what your warehouse actually has.</span>
+              </h2>
+              <p className="text-xs text-purple-200/70 leading-relaxed font-normal">
+                Inventory systems record transactions. StockSense detects discrepancies against physical reality, calculates tolerance, triggers investigations, and resolves exceptions.
+              </p>
             </div>
-          )}
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            {tab === 'register' && (
-              <>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Full Name</label>
+          {/* Feature Highlights */}
+          <div className="space-y-3 pt-6 border-t border-purple-800/40">
+            <div className="flex items-center gap-2.5 text-xs text-purple-200">
+              <div className="w-5 h-5 rounded-md bg-purple-600/30 border border-purple-400/30 flex items-center justify-center text-purple-300">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+              <span>Automated Tiered Tolerance Engine</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-xs text-purple-200">
+              <div className="w-5 h-5 rounded-md bg-purple-600/30 border border-purple-400/30 flex items-center justify-center text-purple-300">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+              <span>Deterministic Explainable Severity</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-xs text-purple-200">
+              <div className="w-5 h-5 rounded-md bg-purple-600/30 border border-purple-400/30 flex items-center justify-center text-purple-300">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+              <span>Immutable Ledger & Root Cause Tracking</span>
+            </div>
+          </div>
+
+          {/* Bottom Quote */}
+          <div className="text-[11px] text-purple-300/50 font-mono">
+            Enterprise Grade • PostgreSQL • n8n Ready
+          </div>
+        </div>
+
+        {/* Right Side: Auth Forms */}
+        <div className="md:col-span-7 p-6 sm:p-8 flex flex-col justify-between">
+          <div>
+            {/* Top Brand Header (Visible on Mobile) */}
+            <div className="md:hidden mb-6 flex justify-center">
+              <BrandLogo size="md" />
+            </div>
+
+            {/* Instant 1-Click Demo Evaluation Banner */}
+            <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100/90 mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] uppercase font-bold tracking-wider text-purple-800 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Instant Demo Access
+                </span>
+                <span className="text-[10px] text-purple-600/80 font-medium">Evaluation Mode</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDemo('INVENTORY_MANAGER')}
+                  disabled={loading}
+                  className="px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-semibold text-center transition-all shadow-sm hover:scale-[1.01]"
+                >
+                  Login as Manager
+                  <span className="block text-[10px] text-purple-200 font-normal">Alex Mercer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemo('WAREHOUSE_STAFF')}
+                  disabled={loading}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold text-center transition-all shadow-sm hover:scale-[1.01]"
+                >
+                  Login as Staff
+                  <span className="block text-[10px] text-slate-300 font-normal">Sam Rodriguez</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Selector */}
+            <div className="flex bg-purple-50/50 p-1 rounded-xl mb-5 border border-purple-100/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('login');
+                  setError(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all text-center ${
+                  tab === 'login'
+                    ? 'bg-white text-purple-700 shadow-sm border border-purple-100'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTab('register');
+                  setError(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all text-center ${
+                  tab === 'register'
+                    ? 'bg-white text-purple-700 shadow-sm border border-purple-100'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2 animate-fadeIn">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-rose-500" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              {tab === 'register' && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Jordan Hayes"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 bg-white border border-purple-100 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Company / Organization</label>
+                      <div className="relative">
+                        <Building className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Apex Supply Chain"
+                          value={company}
+                          onChange={(e) => setCompany(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 bg-white border border-purple-100 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role Assignment</label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white border border-purple-100 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                    >
+                      <option value="INVENTORY_MANAGER">Inventory Manager (Full Ops & Resolution)</option>
+                      <option value="WAREHOUSE_STAFF">Warehouse Staff (Counting & Floor Operations)</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Work Email</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type="text"
-                    placeholder="e.g. Jordan Hayes"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    type="email"
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-purple-100 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-medium"
                     required
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Assigned Role</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
-                  >
-                    <option value="INVENTORY_MANAGER">Inventory Manager</option>
-                    <option value="WAREHOUSE_STAFF">Warehouse Staff</option>
-                  </select>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">Password</label>
+                  {tab === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotEmail(email);
+                        setIsForgotModalOpen(true);
+                      }}
+                      className="text-[11px] font-semibold text-purple-600 hover:text-purple-700"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
                 </div>
-              </>
-            )}
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Work Email</label>
-              <input
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
-                required
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-slate-700">Password</label>
-                {tab === 'login' && (
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-10 py-2 bg-white border border-purple-100 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                    required
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      setForgotEmail(email);
-                      setIsForgotModalOpen(true);
-                    }}
-                    className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
-                    Forgot password?
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
+                </div>
+
+                {/* Password Strength Indicator on Register */}
+                {tab === 'register' && password && (
+                  <div className="mt-1.5 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span>Password strength: <strong>{passwordStrength.label}</strong></span>
+                    </div>
+                    <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden flex gap-1">
+                      <div className={`h-full flex-1 ${passwordStrength.score >= 1 ? passwordStrength.color : 'bg-slate-200'}`} />
+                      <div className={`h-full flex-1 ${passwordStrength.score >= 2 ? passwordStrength.color : 'bg-slate-200'}`} />
+                      <div className={`h-full flex-1 ${passwordStrength.score >= 3 ? passwordStrength.color : 'bg-slate-200'}`} />
+                    </div>
+                  </div>
                 )}
               </div>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                required
-              />
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors shadow-xs flex items-center justify-center gap-1.5 mt-2"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>{loading ? 'Authenticating...' : tab === 'login' ? 'Sign In to StockSense' : 'Register Account'}</span>
-            </button>
-          </form>
+              {tab === 'register' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Confirm Password</label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-purple-100 rounded-xl text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Checkboxes */}
+              {tab === 'login' ? (
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-3.5 w-3.5 text-purple-600 focus:ring-purple-500 border-slate-300 rounded cursor-pointer"
+                  />
+                  <label htmlFor="remember" className="ml-2 block text-xs text-slate-600 cursor-pointer">
+                    Remember my credentials for 7 days
+                  </label>
+                </div>
+              ) : (
+                <div className="flex items-start">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    className="h-3.5 w-3.5 mt-0.5 text-purple-600 focus:ring-purple-500 border-slate-300 rounded cursor-pointer"
+                  />
+                  <label htmlFor="terms" className="ml-2 block text-[11px] text-slate-600 cursor-pointer">
+                    I agree to the StockSense enterprise terms of service and audit logging privacy policy.
+                  </label>
+                </div>
+              )}
+
+              {/* Submit CTA */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 mt-2 cursor-pointer hover:scale-[1.005]"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>
+                  {loading
+                    ? 'Authenticating...'
+                    : tab === 'login'
+                    ? 'Sign In to StockSense'
+                    : 'Create StockSense Account'}
+                </span>
+              </button>
+            </form>
+          </div>
+
+          {/* Footer Note */}
+          <div className="pt-6 border-t border-purple-100/60 text-center text-[11px] text-slate-400">
+            StockSense — Inventory Reality & Exception Management • v2.4 Enterprise
+          </div>
         </div>
       </div>
 
-      {/* Forgot Password Modal (Section 27) */}
+      {/* Forgot Password Modal with Real Hashed OTP Verification */}
       <Modal
         isOpen={isForgotModalOpen}
         onClose={() => setIsForgotModalOpen(false)}
-        title="Reset Password (Development / OTP Flow)"
-        subtitle="Verification code mock flow as specified in Section 27"
+        title="Reset Account Password"
+        subtitle="Cryptographic verification code delivery"
       >
         {forgotSuccess ? (
           <div className="p-6 text-center space-y-2">
@@ -263,12 +489,13 @@ export const Login: React.FC = () => {
         ) : forgotStep === 'request' ? (
           <form onSubmit={handleRequestOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Work Email</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Registered Work Email</label>
               <input
                 type="email"
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
+                className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs"
+                placeholder="name@company.com"
                 required
               />
             </div>
@@ -276,24 +503,26 @@ export const Login: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsForgotModalOpen(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={forgotLoading}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors"
               >
-                {forgotLoading ? 'Sending...' : 'Send Verification OTP'}
+                {forgotLoading ? 'Generating...' : 'Send Verification OTP'}
               </button>
             </div>
           </form>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-4">
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
-              Mock OTP generated: <strong className="font-mono">{mockOtp}</strong> (automatically filled for testing)
-            </div>
+            {mockOtp && (
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
+                Development OTP Code: <strong className="font-mono text-purple-700">{mockOtp}</strong> (valid for 15 minutes)
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">6-Digit Verification Code</label>
@@ -301,7 +530,8 @@ export const Login: React.FC = () => {
                 type="text"
                 value={inputOtp}
                 onChange={(e) => setInputOtp(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold"
+                className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-mono font-bold text-center tracking-widest"
+                maxLength={6}
                 required
               />
             </div>
@@ -310,10 +540,11 @@ export const Login: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-700 mb-1">New Password</label>
               <input
                 type="password"
-                placeholder="Enter new password"
+                placeholder="Enter new password (min. 6 characters)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
+                className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs"
+                minLength={6}
                 required
               />
             </div>
@@ -322,14 +553,14 @@ export const Login: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setForgotStep('request')}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
               >
                 Back
               </button>
               <button
                 type="submit"
                 disabled={forgotLoading}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors"
               >
                 {forgotLoading ? 'Updating...' : 'Set New Password'}
               </button>

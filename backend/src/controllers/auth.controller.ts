@@ -132,35 +132,109 @@ export class AuthController {
   }
 
   static async forgotPassword(req: Request, res: Response) {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required.' });
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required.' });
+      }
+
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        return res.status(404).json({ error: 'User with this email not found.' });
+      }
+
+      // Generate secure 6-digit numeric OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes validity
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          otpHash,
+          otpExpiry,
+          otpUsed: false,
+        },
+      });
+
+      const responsePayload: any = {
+        success: true,
+        message: 'Password reset OTP has been generated. Valid for 15 minutes.',
+      };
+
+      // In development mode, provide OTP to assist testing without requiring an external SMTP gateway
+      if (process.env.NODE_ENV !== 'production' || process.env.EXPOSE_DEV_OTP === 'true') {
+        responsePayload.mockOtp = otp;
+        responsePayload.devOtp = otp;
+      }
+
+      return res.json(responsePayload);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message || 'Failed to process forgot password request.' });
     }
-    // Mock OTP response for development flow
-    return res.json({
-      success: true,
-      message: 'Demo password reset OTP sent: 849201. Use this code to reset your password.',
-      mockOtp: '849201',
-    });
   }
 
   static async resetPassword(req: Request, res: Response) {
-    const { email, otp, newPassword } = req.body;
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({ error: 'Email, OTP, and new password are required.' });
-    }
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(404).json({ error: 'User with this email not found.' });
-    }
+    try {
+      const { email, otp, newPassword } = req.body;
+      if (!email || !otp || !newPassword) {
+        return res.status(400).json({ error: 'Email, OTP, and new password are required.' });
+      }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash },
-    });
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+      }
 
-    return res.json({ success: true, message: 'Password has been successfully updated.' });
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        return res.status(404).json({ error: 'User with this email not found.' });
+      }
+
+      // Validate OTP presence and expiry
+      if (!user.otpHash || !user.otpExpiry) {
+        return res.status(400).json({ error: 'No active OTP request found. Please request a new OTP.' });
+      }
+
+      if (user.otpUsed) {
+        return res.status(400).json({ error: 'This OTP has already been used. Please request a new one.' });
+      }
+
+      if (new Date() > new Date(user.otpExpiry)) {
+        return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+      }
+
+      // Verify OTP matches hashed value
+      const isValidOtp = await bcrypt.compare(String(otp), user.otpHash);
+      if (!isValidOtp) {
+        return res.status(400).json({ error: 'Invalid OTP code provided.' });
+      }
+
+      // Hash new password and invalidate OTP
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          otpUsed: true,
+          otpHash: null,
+          otpExpiry: null,
+        },
+      });
+
+      // Audit log entry
+      const { AuditService } = await import('../services/audit.service');
+      await AuditService.log({
+        userId: user.id,
+        action: 'PASSWORD_RESET',
+        entity: 'User',
+        entityId: user.id,
+        metadata: { email: user.email },
+      });
+
+      return res.json({ success: true, message: 'Password has been successfully updated.' });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message || 'Failed to reset password.' });
+    }
   }
 
   static async getMe(req: any, res: Response) {

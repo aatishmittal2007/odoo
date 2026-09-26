@@ -11,6 +11,10 @@ import {
   Package,
   Layers,
   RefreshCw,
+  Sparkles,
+  PieChart as PieIcon,
+  ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   PieChart,
@@ -65,12 +69,12 @@ export const ProcessHealth: React.FC = () => {
     fetchHealth();
   }, []);
 
-  const COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
+  const COLORS = ['#7c3aed', '#ec4899', '#a855f7', '#6366f1', '#06b6d4', '#f59e0b', '#10b981'];
 
   if (loading && !healthData) {
     return (
       <div className="flex items-center justify-center h-96">
-        <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+        <RefreshCw className="w-8 h-8 animate-spin text-purple-600" />
       </div>
     );
   }
@@ -78,80 +82,104 @@ export const ProcessHealth: React.FC = () => {
   const { totalResolved, rootCauseBreakdown, keyMetrics, severityDistribution } = healthData || {};
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2.5">
-          <Activity className="w-6 h-6 text-emerald-600" />
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Process Health & Root Cause Analytics
-          </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-sm shadow-purple-600/10">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Process Health & Root Cause Analytics</h1>
+              <p className="text-xs text-slate-500">
+                Deterministic Pareto insights computed dynamically from verified incident resolution records.
+              </p>
+            </div>
+          </div>
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          Aggregated analytics computed dynamically from all stored, human-verified incident resolutions. No hardcoded statistics.
-        </p>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={fetchHealth}
+            disabled={loading}
+            className="p-2.5 rounded-xl border border-purple-100/80 bg-white/80 hover:bg-purple-50/60 text-slate-600 hover:text-purple-700 transition-colors shadow-card"
+            title="Refresh analytics"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-purple-600' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Total Resolved Incidents
-          </span>
-          <span className="text-2xl font-bold font-mono text-slate-900 mt-1 block">
-            {totalResolved || 0}
-          </span>
-          <span className="text-[11px] text-slate-500 mt-0.5 block">
-            Audited & classified
-          </span>
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500">Resolved Incidents</span>
+            <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-slate-900 mt-2">{totalResolved || 0}</div>
+          <div className="text-[11px] text-slate-400 mt-1">Audited with verified root cause</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Resolution Rate
-          </span>
-          <span className="text-2xl font-bold font-mono text-emerald-600 mt-1 block">
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-emerald-600">Resolution Rate</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-emerald-600 mt-2">
             {keyMetrics?.resolutionRate || 0}%
-          </span>
-          <span className="text-[11px] text-slate-500 mt-0.5 block">
-            Lifetime incident closure
-          </span>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">Total lifetime incident closure</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Mean Time To Resolve (MTTR)
-          </span>
-          <span className="text-2xl font-bold font-mono text-slate-900 mt-1 block">
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-purple-600">MTTR Turnaround</span>
+            <div className="w-7 h-7 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-purple-700 mt-2">
             {keyMetrics?.avgResolutionTimeHours || 0} hrs
-          </span>
-          <span className="text-[11px] text-slate-500 mt-0.5 block">
-            Average turnaround
-          </span>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">Mean Time to Resolve</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Primary Vulnerability
-          </span>
-          <span className="text-xl font-bold text-amber-700 mt-1 block truncate">
-            {rootCauseBreakdown?.[0]?.rootCause || 'None'}
-          </span>
-          <span className="text-[11px] text-slate-500 mt-0.5 block">
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-amber-600">Leading Discrepancy Cause</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-base font-bold text-slate-900 mt-2 truncate">
+            {rootCauseBreakdown?.[0]?.rootCause?.replace(/_/g, ' ') || 'None'}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">
             {rootCauseBreakdown?.[0]?.percentage || 0}% of all discrepancies
-          </span>
+          </div>
         </div>
       </div>
 
       {/* Main Charts: Root Cause Breakdown & Severity Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pie & Bar Chart (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div className="lg:col-span-2 glass-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-              Root Cause Distribution (Actual Resolved Incidents)
-            </h2>
-            <span className="text-xs text-slate-400">Click a category below to drill down</span>
+            <div className="flex items-center gap-2">
+              <PieIcon className="w-4 h-4 text-purple-600" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Root Cause Distribution (Pareto Analysis)
+              </h2>
+            </div>
+            <span className="text-[11px] text-purple-700 font-semibold bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100">
+              Interactive Filter
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
@@ -179,170 +207,153 @@ export const ProcessHealth: React.FC = () => {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: any, name: any, item: any) => [
-                      `${value} incidents (${item.payload.percentage}%)`,
-                      name,
+                    formatter={(value: any, name: any) => [
+                      `${value} incidents`,
+                      name?.replace(/_/g, ' '),
                     ]}
+                    contentStyle={{
+                      backgroundColor: '#090713',
+                      borderColor: '#4c1d95',
+                      borderRadius: '12px',
+                      color: '#fff',
+                      fontSize: '11px',
+                    }}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Clickable Category List with exact % */}
-            <div className="space-y-2">
-              {rootCauseBreakdown?.map((rc: any, index: number) => {
-                const isSelected = selectedRootCause === rc.rootCause;
+            {/* Root Cause Chips / Selection List */}
+            <div className="space-y-2 overflow-y-auto max-h-64 pr-2">
+              {rootCauseBreakdown?.map((item: any, idx: number) => {
+                const isSelected = selectedRootCause === item.rootCause;
+                const color = COLORS[idx % COLORS.length];
 
                 return (
-                  <button
-                    key={rc.rootCause}
-                    onClick={() => handleSelectRootCause(rc.rootCause)}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-xs transition-all ${
+                  <div
+                    key={item.rootCause}
+                    onClick={() => handleSelectRootCause(item.rootCause)}
+                    className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
                       isSelected
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        ? 'bg-purple-100/60 border-purple-400/80 shadow-2xs'
+                        : 'bg-white/60 border-purple-100/70 hover:bg-purple-50/40'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <span className="font-semibold">{rc.rootCause}</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <div>
+                        <span className="font-semibold text-slate-800 block">
+                          {item.rootCause.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {item.count} incidents • {item.percentage}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 font-mono">
-                      <span>{rc.count} incidents</span>
-                      <span className={`font-bold ${isSelected ? 'text-emerald-400' : 'text-slate-900'}`}>
-                        {rc.percentage}%
-                      </span>
-                    </div>
-                  </button>
+                    <ArrowRight className={`w-3.5 h-3.5 ${isSelected ? 'text-purple-700' : 'text-slate-300'}`} />
+                  </div>
                 );
               })}
             </div>
           </div>
         </div>
 
-        {/* Severity of Resolved Incidents (1 col) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-            Resolved by Severity
-          </h2>
+        {/* Severity Breakdown Bar */}
+        <div className="glass-card p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-purple-600" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Severity Distribution
+            </h2>
+          </div>
+
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={severityDistribution}>
-                <XAxis dataKey="severity" stroke="#94a3b8" fontSize={11} />
-                <YAxis stroke="#94a3b8" fontSize={11} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <BarChart data={severityDistribution || []}>
+                <XAxis dataKey="severity" tick={{ fontSize: 10, fill: '#64748b' }} />
+                <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#090713',
+                    borderColor: '#4c1d95',
+                    borderRadius: '12px',
+                    color: '#fff',
+                    fontSize: '11px',
+                  }}
+                />
+                <Bar dataKey="count" fill="#7c3aed" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Section 20: PROCESS DRILL-DOWN PANEL */}
-      {selectedRootCause && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <span className="p-2 rounded-lg bg-emerald-100 text-emerald-800">
-                <Layers className="w-5 h-5" />
-              </span>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Process Drill-Down: {selectedRootCause}
+      {/* Root Cause Drilldown Details */}
+      {selectedRootCause && drilldownData && (
+        <div className="glass-card p-6 space-y-4 border-l-4 border-l-purple-600">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                  Root Cause Investigation Drilldown
+                </span>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {selectedRootCause.replace(/_/g, ' ')}
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Analyzing root patterns, failure pathways, and repeated location bottlenecks.
-                </p>
               </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Historical incidents, affected products, and verified corrective actions.
+              </p>
             </div>
 
-            <Badge variant="high" size="lg">
-              {drilldownData?.totalIncidents || 0} Total Incidents
-            </Badge>
+            <div className="flex items-center gap-3 font-mono text-xs">
+              <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-800 font-bold border border-purple-200">
+                {drilldownData.totalIncidents || 0} Incidents
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                Avg Resolution: {drilldownData.avgResolutionHours || 0} hrs
+              </span>
+            </div>
           </div>
 
-          {loadingDrilldown ? (
-            <div className="py-12 text-center text-slate-400 text-xs">Loading root cause drill-down...</div>
-          ) : drilldownData ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Most Common Problematic Route */}
-              <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  Most Common Failure Pathway / Route
-                </span>
-                {drilldownData.mostCommonRoutes?.length > 0 ? (
-                  drilldownData.mostCommonRoutes.map((route: any, i: number) => (
-                    <div key={i} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold font-mono text-slate-900">
-                          {route.route}
-                        </span>
-                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">
-                          {route.ratePercentage}% of failures
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600">
-                        Primary Issue: <strong>{route.primaryIssue}</strong>
-                      </p>
+          {/* Incidents Table / Cards */}
+          <div className="space-y-2 pt-2">
+            {drilldownData.incidents?.map((inc: any) => (
+              <div
+                key={inc.id}
+                className="p-3 bg-white border border-purple-100 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+              >
+                <div className="flex items-center gap-3">
+                  <Badge variant={inc.severity === 'CRITICAL' ? 'critical' : 'high'} size="sm">
+                    {inc.severity}
+                  </Badge>
+                  <div>
+                    <span className="font-mono font-bold text-xs text-slate-900">
+                      {inc.exceptionNumber}
+                    </span>
+                    <span className="text-xs text-slate-600 ml-2 font-medium">
+                      {inc.product?.name} ({inc.product?.sku})
+                    </span>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Warehouse: {inc.warehouse?.name} / {inc.location?.name}
                     </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-xs text-slate-400 bg-slate-50 rounded-xl">
-                    No recurring inter-facility routes recorded for this root cause.
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Affected Locations & Warehouses */}
-              <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  Affected Storage Locations
-                </span>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {drilldownData.affectedLocations?.map((loc: any, i: number) => (
-                    <div
-                      key={i}
-                      className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-semibold text-slate-800">{loc.name}</span>
-                        <span className="text-slate-400 text-[11px]">({loc.warehouseName})</span>
-                      </div>
-                      <span className="font-mono font-bold text-slate-900">{loc.count} incidents</span>
+                <div className="text-xs text-slate-600 max-w-md">
+                  <div className="font-medium text-slate-800 italic">"{inc.resolution?.explanation}"</div>
+                  {inc.resolution?.correctiveAction && (
+                    <div className="text-[11px] text-purple-700 mt-0.5">
+                      Action: <strong>{inc.resolution.correctiveAction}</strong>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
-
-              {/* Affected Products */}
-              <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  Most Impacted Products
-                </span>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {drilldownData.affectedProducts?.map((prod: any, i: number) => (
-                    <div
-                      key={i}
-                      className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Package className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="font-semibold text-slate-800">{prod.name}</span>
-                        <span className="font-mono text-slate-400 text-[11px]">({prod.sku})</span>
-                      </div>
-                      <span className="font-mono font-bold text-slate-900">{prod.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 };
+export default ProcessHealth;

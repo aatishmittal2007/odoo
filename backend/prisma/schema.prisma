@@ -9,15 +9,18 @@ generator client {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String    @id @default(uuid())
+  email        String    @unique
   passwordHash String
   name         String
-  role         String   // "INVENTORY_MANAGER" | "WAREHOUSE_STAFF"
+  role         String    // "INVENTORY_MANAGER" | "WAREHOUSE_STAFF"
   department   String?
   avatar       String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  otpHash      String?   // bcrypt hash of last issued OTP
+  otpExpiry    DateTime? // OTP expiry timestamp (15 min from issue)
+  otpUsed      Boolean   @default(false) // true once OTP has been consumed
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   assignedExceptions Exception[]        @relation("AssignedExceptions")
   investigations     Investigation[]    @relation("UserInvestigations")
@@ -289,6 +292,7 @@ model Exception {
   warehouseId     String
   locationId      String
   severity        String    // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  severityMetaJson String?  // JSON: { varianceScore, factors, totalScore, reasons[] }
   status          String    @default("NEW") // "NEW", "INVESTIGATING", "ACTION_REQUIRED", "RESOLVED", "CLOSED"
   ownerId         String?
   dueDate         DateTime?

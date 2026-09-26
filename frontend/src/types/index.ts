@@ -173,6 +173,7 @@ export interface Adjustment {
   warehouse: Warehouse;
   location: Location;
   product: Product;
+  user?: { id: string; name: string; email?: string };
 }
 
 export interface PhysicalCount {

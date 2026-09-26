@@ -1,6 +1,7 @@
 import prisma from '../prisma';
 import { StockService } from './stock.service';
 import { ExceptionEngine } from './exception-engine';
+import { ToleranceService } from './tolerance.service';
 
 export class PhysicalCountService {
   static async listCounts(filters?: { productId?: string; warehouseId?: string }) {
@@ -40,14 +41,16 @@ export class PhysicalCountService {
 
       const systemQuantity = balance.quantity;
       const physicalQuantity = data.physicalQuantity;
-      const variance = physicalQuantity - systemQuantity;
-      const variancePercentage =
-        systemQuantity !== 0 ? (variance / systemQuantity) * 100 : variance === 0 ? 0 : 100;
+
+      // ---------------------------------------------------------------
+      // TOLERANCE ENGINE — evaluate before deciding whether to raise exception
+      // ---------------------------------------------------------------
+      const toleranceResult = ToleranceService.evaluate(systemQuantity, physicalQuantity);
 
       const countTotal = await tx.physicalCount.count();
       const countNumber = data.countNumber || `CNT-${String(countTotal + 1).padStart(3, '0')}`;
 
-      // Create physical count record
+      // Create physical count record (ALWAYS — count is evidence regardless of tolerance)
       const countRecord = await tx.physicalCount.create({
         data: {
           countNumber,
@@ -56,10 +59,14 @@ export class PhysicalCountService {
           productId: data.productId,
           systemQuantity,
           physicalQuantity,
-          variance,
-          variancePercentage,
-          status: 'RECORDED',
-          notes: data.notes,
+          variance: toleranceResult.variance,
+          variancePercentage: toleranceResult.variancePercentage,
+          // Status reflects tolerance outcome
+          status: toleranceResult.withinTolerance ? 'RECONCILED' : 'RECORDED',
+          notes: [
+            data.notes,
+            toleranceResult.explanation,
+          ].filter(Boolean).join(' | '),
           countedBy: data.userId || null,
         },
         include: {
@@ -81,41 +88,56 @@ export class PhysicalCountService {
         data: { lastVerifiedAt: new Date() },
       });
 
-      // Trigger Exception Engine rule for Physical Discrepancy if variance != 0
-      if (variance !== 0) {
+      // ---------------------------------------------------------------
+      // IMPORTANT: Physical count does NOT silently change stock.
+      // Only an explicit resolution/adjustment can change inventory.
+      // Exception is only raised when OUTSIDE tolerance.
+      // ---------------------------------------------------------------
+      if (!toleranceResult.withinTolerance) {
         await ExceptionEngine.createDiscrepancyException(
           {
             count: countRecord,
             systemQuantity,
             physicalQuantity,
-            variance,
-            variancePercentage,
+            variance: toleranceResult.variance,
+            variancePercentage: toleranceResult.variancePercentage,
             warehouseId: data.warehouseId,
             locationId: data.locationId,
             productId: data.productId,
             userId: data.userId,
+            toleranceExplanation: toleranceResult.explanation,
           },
           tx
         );
       }
 
-      // Audit log entry (D17)
+      // Audit log entry
       const { AuditService } = await import('./audit.service');
-      await AuditService.log({
-        userId: data.userId,
-        action: 'PHYSICAL_COUNT_SUBMIT',
-        entity: 'PhysicalCount',
-        entityId: countRecord.id,
-        metadata: {
-          countNumber,
-          systemQuantity,
-          physicalQuantity,
-          variance,
-          variancePercentage,
+      await AuditService.log(
+        {
+          userId: data.userId,
+          action: 'PHYSICAL_COUNT_SUBMIT',
+          entity: 'PhysicalCount',
+          entityId: countRecord.id,
+          metadata: {
+            countNumber,
+            systemQuantity,
+            physicalQuantity,
+            variance: toleranceResult.variance,
+            variancePercentage: toleranceResult.variancePercentage,
+            withinTolerance: toleranceResult.withinTolerance,
+            toleranceTier: toleranceResult.toleranceRule.tier,
+            allowedVariance: toleranceResult.toleranceRule.allowedVariance,
+            exceptionRaised: !toleranceResult.withinTolerance,
+          },
         },
-      }, tx);
+        tx
+      );
 
-      return countRecord;
+      return {
+        ...countRecord,
+        toleranceResult, // Include tolerance details in the API response
+      };
     });
   }
 }
