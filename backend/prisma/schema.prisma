@@ -1,0 +1,381 @@
+// StockSense Prisma Schema
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   // "INVENTORY_MANAGER" | "WAREHOUSE_STAFF"
+  department   String?
+  avatar       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedExceptions Exception[]        @relation("AssignedExceptions")
+  investigations     Investigation[]    @relation("UserInvestigations")
+  investigationTasks InvestigationTask[] @relation("AssignedTasks")
+  resolvedExceptions Exception[]        @relation("ResolvedExceptions")
+  ledgerEntries      StockLedger[]
+  physicalCounts     PhysicalCount[]
+  auditLogs          AuditLog[]
+}
+
+model Warehouse {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  address     String?
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  locations       Location[]
+  stockBalances   StockBalance[]
+  sourceTransfers Transfer[]     @relation("SourceWarehouse")
+  destTransfers   Transfer[]     @relation("DestWarehouse")
+  receipts        Receipt[]
+  deliveries      Delivery[]
+  adjustments     Adjustment[]
+  physicalCounts  PhysicalCount[]
+  exceptions      Exception[]
+}
+
+model Location {
+  id          String   @id @default(uuid())
+  warehouseId String
+  code        String
+  name        String
+  type        String   @default("STORAGE") // "STORAGE", "RECEIVING", "SHIPPING", "STAGING", "PRODUCTION", "SCRAP"
+  aisle       String?
+  rack        String?
+  shelf       String?
+  bin         String?
+  isVirtual   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  warehouse       Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  stockBalances   StockBalance[]
+  sourceTransfers Transfer[]     @relation("SourceLocation")
+  destTransfers   Transfer[]     @relation("DestLocation")
+  receipts        Receipt[]
+  deliveries      Delivery[]
+  adjustments     Adjustment[]
+  physicalCounts  PhysicalCount[]
+  exceptions      Exception[]
+
+  @@unique([warehouseId, code])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id                 String   @id @default(uuid())
+  sku                String   @unique
+  name               String
+  description        String?
+  categoryId         String
+  uom                String   // "kg", "units", "meters", "boxes", etc.
+  reorderLevel       Float    @default(10)
+  reorderQuantity    Float    @default(20)
+  costPrice          Float    @default(0.0)
+  countingPeriodDays Int      @default(30)
+  lastCountDate      DateTime?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  category       Category        @relation(fields: [categoryId], references: [id])
+  stockBalances  StockBalance[]
+  ledgerEntries  StockLedger[]
+  receiptItems   ReceiptItem[]
+  deliveryItems  DeliveryItem[]
+  transferItems  TransferItem[]
+  adjustments    Adjustment[]
+  physicalCounts PhysicalCount[]
+  exceptions     Exception[]
+}
+
+model StockBalance {
+  id               String   @id @default(uuid())
+  productId        String
+  warehouseId      String
+  locationId       String
+  quantity         Float    @default(0)
+  reservedQuantity Float    @default(0)
+  lastVerifiedAt   DateTime?
+  updatedAt        DateTime @updatedAt
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  location  Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId, locationId])
+}
+
+model StockLedger {
+  id             String   @id @default(uuid())
+  timestamp      DateTime @default(now())
+  productId      String
+  sku            String
+  operation      String   // "RECEIPT", "DELIVERY", "TRANSFER_IN", "TRANSFER_OUT", "ADJUSTMENT", "COUNT_RECONCILE"
+  referenceType  String   // "RECEIPT", "DELIVERY", "TRANSFER", "ADJUSTMENT", "PHYSICAL_COUNT"
+  referenceId    String
+  sourceName     String?  // e.g. "Main Warehouse / Rack A" or "Supplier: Acero Metals"
+  destName       String?  // e.g. "Main Warehouse / Rack B" or "Customer: Apex Build"
+  quantityChange Float    // +100 or -20
+  balanceAfter   Float    // total company or location balance after move
+  userId         String?
+  notes          String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+}
+
+model Receipt {
+  id                     String    @id @default(uuid())
+  receiptNumber          String    @unique // e.g. "REC-001" or "R102"
+  supplier               String
+  date                   DateTime  @default(now())
+  destinationWarehouseId String
+  destinationLocationId  String
+  status                 String    @default("DRAFT") // "DRAFT", "WAITING", "READY", "DONE", "CANCELLED"
+  notes                  String?
+  validatedAt            DateTime?
+  validatedBy            String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  destinationWarehouse Warehouse     @relation(fields: [destinationWarehouseId], references: [id])
+  destinationLocation  Location      @relation(fields: [destinationLocationId], references: [id])
+  items                ReceiptItem[]
+}
+
+model ReceiptItem {
+  id               String @id @default(uuid())
+  receiptId        String
+  productId        String
+  quantity         Float
+  receivedQuantity Float  @default(0)
+
+  receipt Receipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Delivery {
+  id                String    @id @default(uuid())
+  deliveryNumber    String    @unique // e.g. "DEL-001" or "Order #1042" / "D442"
+  customer          String
+  date              DateTime  @default(now())
+  sourceWarehouseId String
+  sourceLocationId  String
+  status            String    @default("DRAFT") // "DRAFT", "READY", "DONE", "CANCELLED"
+  notes             String?
+  validatedAt       DateTime?
+  validatedBy       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sourceWarehouse Warehouse      @relation(fields: [sourceWarehouseId], references: [id])
+  sourceLocation  Location       @relation(fields: [sourceLocationId], references: [id])
+  items           DeliveryItem[]
+}
+
+model DeliveryItem {
+  id                String @id @default(uuid())
+  deliveryId        String
+  productId         String
+  quantity          Float
+  deliveredQuantity Float  @default(0)
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+}
+
+model Transfer {
+  id                String    @id @default(uuid())
+  transferNumber    String    @unique // e.g. "TRF-001" or "T208"
+  sourceWarehouseId String
+  sourceLocationId  String
+  destWarehouseId   String
+  destLocationId    String
+  status            String    @default("DRAFT") // "DRAFT", "READY", "IN_TRANSIT", "DONE", "CANCELLED"
+  scheduledDate     DateTime  @default(now())
+  completedDate     DateTime?
+  notes             String?
+  createdBy         String?
+  completedBy       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sourceWarehouse Warehouse      @relation("SourceWarehouse", fields: [sourceWarehouseId], references: [id])
+  sourceLocation  Location       @relation("SourceLocation", fields: [sourceLocationId], references: [id])
+  destWarehouse   Warehouse      @relation("DestWarehouse", fields: [destWarehouseId], references: [id])
+  destLocation    Location       @relation("DestLocation", fields: [destLocationId], references: [id])
+  items           TransferItem[]
+}
+
+model TransferItem {
+  id         String @id @default(uuid())
+  transferId String
+  productId  String
+  quantity   Float
+
+  transfer Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+}
+
+model Adjustment {
+  id               String   @id @default(uuid())
+  adjustmentNumber String   @unique // e.g. "ADJ-001" or "A129"
+  warehouseId      String
+  locationId       String
+  productId        String
+  quantityChange   Float    // +5 or -3
+  reason           String   // e.g. "Damaged stock", "Found during count", "Vendor replacement"
+  status           String   @default("APPROVED") // "PENDING", "APPROVED", "REJECTED"
+  createdBy        String?
+  createdAt        DateTime @default(now())
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  location  Location  @relation(fields: [locationId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+}
+
+model PhysicalCount {
+  id                 String   @id @default(uuid())
+  countNumber        String   @unique // e.g. "CNT-001" or "C442"
+  warehouseId        String
+  locationId         String
+  productId          String
+  systemQuantity     Float
+  physicalQuantity   Float
+  variance           Float    // physicalQuantity - systemQuantity
+  variancePercentage Float    // (variance / systemQuantity) * 100
+  status             String   @default("RECORDED") // "RECORDED", "RECONCILED", "DISMISSED"
+  countedBy          String?
+  countedAt          DateTime @default(now())
+  notes              String?
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  location  Location  @relation(fields: [locationId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+  user      User?     @relation(fields: [countedBy], references: [id])
+}
+
+model Exception {
+  id              String    @id @default(uuid())
+  exceptionNumber String    @unique // e.g. "INC-024"
+  type            String    // "INVENTORY_DISCREPANCY", "LOCATION_MISMATCH", "UNUSUAL_ADJUSTMENT", "COUNT_OVERDUE", "LOW_STOCK", "NEGATIVE_STOCK", "TRANSFER_EXCEPTION"
+  productId       String
+  sku             String
+  warehouseId     String
+  locationId      String
+  severity        String    // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  status          String    @default("NEW") // "NEW", "INVESTIGATING", "ACTION_REQUIRED", "RESOLVED", "CLOSED"
+  ownerId         String?
+  dueDate         DateTime?
+  resolvedAt      DateTime?
+  resolvedById    String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  product    Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse  Warehouse             @relation(fields: [warehouseId], references: [id])
+  location   Location              @relation(fields: [locationId], references: [id])
+  owner      User?                 @relation("AssignedExceptions", fields: [ownerId], references: [id])
+  resolvedBy User?                 @relation("ResolvedExceptions", fields: [resolvedById], references: [id])
+  evidence   ExceptionEvidence[]
+  investigation Investigation?
+  tasks      InvestigationTask[]
+  resolution ExceptionResolution?
+}
+
+model ExceptionEvidence {
+  id            String   @id @default(uuid())
+  exceptionId   String
+  referenceType String   // "RECEIPT", "DELIVERY", "TRANSFER", "ADJUSTMENT", "PHYSICAL_COUNT"
+  referenceId   String   // e.g. "R102", "T208", "D442", "A129", "C442"
+  title         String   // e.g. "Receipt #R102 (+100 kg)"
+  timestamp     DateTime @default(now())
+  metadataJson  String?  // JSON string with extra details (e.g. quantity, order no, source, dest)
+
+  exception Exception @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+}
+
+model Investigation {
+  id           String    @id @default(uuid())
+  exceptionId  String    @unique
+  assignedToId String?
+  priority     String    @default("HIGH") // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  dueDate      DateTime?
+  reason       String?
+  notes        String?
+  startedAt    DateTime  @default(now())
+
+  exception  Exception @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+  assignedTo User?     @relation("UserInvestigations", fields: [assignedToId], references: [id])
+}
+
+model InvestigationTask {
+  id           String    @id @default(uuid())
+  exceptionId  String
+  title        String    // e.g. "Recount Rack A", "Verify transfer", "Verify delivery"
+  description  String?
+  assignedToId String?
+  dueDate      DateTime?
+  status       String    @default("TODO") // "TODO", "IN_PROGRESS", "COMPLETED"
+  isCompleted  Boolean   @default(false)
+  completedAt  DateTime?
+  completedBy  String?
+  notes        String?
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  exception  Exception @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+  assignedTo User?     @relation("AssignedTasks", fields: [assignedToId], references: [id])
+}
+
+model ExceptionResolution {
+  id               String   @id @default(uuid())
+  exceptionId      String   @unique
+  rootCause        String   // "Counting error", "Receiving error", "Picking error", "Transfer error", "Damaged stock", "Wrong location", "System/process error", "Unknown", "Other"
+  explanation      String?
+  correctiveAction String?  // "UPDATE_LOCATION", "ADJUST_INVENTORY", "CREATE_TRANSFER", "FOLLOWUP_TASK", "MARK_RESOLVED"
+  resolutionNotes  String?
+  resolvedAt       DateTime @default(now())
+  resolvedBy       String?
+
+  exception Exception @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  timestamp    DateTime @default(now())
+  userId       String?
+  action       String   // "LOGIN", "PRODUCT_CREATE", "PRODUCT_UPDATE", "RECEIPT_VALIDATE", "DELIVERY_VALIDATE", "TRANSFER_COMPLETE", "ADJUSTMENT_CREATE", "PHYSICAL_COUNT_SUBMIT", "EXCEPTION_CREATE", "INVESTIGATION_START", "TASK_UPDATE", "RESOLUTION_SUBMIT"
+  entity       String   // "Product", "Receipt", "Delivery", "Transfer", "Adjustment", "PhysicalCount", "Exception", "Investigation", "Task", "User"
+  entityId     String
+  metadataJson String?
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
