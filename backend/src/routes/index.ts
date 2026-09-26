@@ -7,6 +7,9 @@ import exceptionRoutes from './exception.routes';
 import dashboardRoutes from './dashboard.routes';
 import taskRoutes from './task.routes';
 import auditRoutes from './audit.routes';
+import aiRoutes from './ai.routes';
+import integrationRoutes from './integration.routes';
+import internalRoutes from './internal.routes';
 import { InventoryOpsController } from '../controllers/inventory-ops.controller';
 import { authenticateToken } from '../middleware/auth';
 
@@ -21,6 +24,9 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/analytics', dashboardRoutes); // Alias for analytics endpoints
 router.use('/tasks', taskRoutes);
 router.use('/audit-logs', auditRoutes);
+router.use('/ai', aiRoutes);
+router.use('/integrations', integrationRoutes);
+router.use('/internal', internalRoutes); // n8n → backend internal automation channel
 
 // Direct top-level operation route aliases matching DFD REST specification
 router.get('/stock', authenticateToken, InventoryOpsController.getStockOverview);

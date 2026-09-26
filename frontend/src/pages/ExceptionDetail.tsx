@@ -10,6 +10,10 @@ import {
   FileCheck,
   TrendingDown,
   RefreshCw,
+  Sparkles,
+  BrainCircuit,
+  Check,
+  ListChecks,
 } from 'lucide-react';
 import api from '../services/api';
 import { Badge, getSeverityBadgeVariant, getStatusBadgeVariant } from '../components/common/Badge';
@@ -32,6 +36,11 @@ export const ExceptionDetail: React.FC<ExceptionDetailProps> = ({ id, navigate }
   const [error, setError] = useState<string | null>(null);
   const [isResolutionModalOpen, setIsResolutionModalOpen] = useState(false);
 
+  // OpenRouter AI Analysis State
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   const fetchDetails = async () => {
     try {
       setLoading(true);
@@ -41,6 +50,19 @@ export const ExceptionDetail: React.FC<ExceptionDetailProps> = ({ id, navigate }
       ]);
       setData(detailRes.data);
       setUsers(usersRes.data);
+
+      if (detailRes.data.exception?.aiAnalysis) {
+        const raw = detailRes.data.exception.aiAnalysis;
+        setAiAnalysis({
+          summary: raw.summary,
+          facts: typeof raw.factsJson === 'string' ? JSON.parse(raw.factsJson) : raw.facts || [],
+          potential_causes: typeof raw.potentialCausesJson === 'string' ? JSON.parse(raw.potentialCausesJson) : raw.potential_causes || [],
+          recommended_checks: typeof raw.recommendedChecksJson === 'string' ? JSON.parse(raw.recommendedChecksJson) : raw.recommended_checks || [],
+          modelUsed: raw.modelUsed,
+          confidence: raw.confidence,
+        });
+      }
+
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load exception details');
@@ -79,6 +101,22 @@ export const ExceptionDetail: React.FC<ExceptionDetailProps> = ({ id, navigate }
   const handleResolve = async (resolveData: any) => {
     await api.post(`/exceptions/${id}/resolve`, resolveData);
     await fetchDetails();
+  };
+
+  const handleGenerateAiAnalysis = async () => {
+    try {
+      setAiLoading(true);
+      setAiError(null);
+      const res = await api.post(`/ai/exceptions/${id}/summary`);
+      setAiAnalysis(res.data);
+    } catch (err: any) {
+      setAiError(
+        err.response?.data?.error ||
+        'AI analysis is temporarily unavailable. The exception and investigation workflow remain fully operational.'
+      );
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   if (loading && !data) {
@@ -225,6 +263,139 @@ export const ExceptionDetail: React.FC<ExceptionDetailProps> = ({ id, navigate }
           )}
         </div>
       )}
+
+      {/* AI Analysis & Hypothesis Generation Card (Phase 3 Integration) */}
+      <div className="bg-white rounded-xl border border-indigo-150 shadow-xs overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shrink-0">
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  StockSense AI Discrepancy Analysis
+                </h3>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 font-mono">
+                  OpenRouter Assisted
+                </span>
+              </div>
+              <p className="text-xs text-indigo-200/80 mt-0.5">
+                Multi-factor hypothesis generation synthesizing ledger balance history and linked operational evidence.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGenerateAiAnalysis}
+            disabled={aiLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900 text-white rounded-lg text-xs font-bold transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${aiLoading ? 'animate-spin' : ''}`} />
+            <span>{aiLoading ? 'Synthesizing Dossier...' : aiAnalysis ? 'Re-run AI Analysis' : 'Generate AI Analysis'}</span>
+          </button>
+        </div>
+
+        {/* Disclaimer Bar */}
+        <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-[11px] text-slate-500">
+          <span className="font-bold text-slate-700">Governance Disclaimer:</span>
+          <span>
+            AI analysis provides observational assistance and potential hypotheses. Deterministic inventory facts and root causes are established strictly by human investigators.
+          </span>
+        </div>
+
+        {/* AI Error Fallback */}
+        {aiError && (
+          <div className="p-4 m-5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-bold block">Service Degradation Notice:</strong>
+              <span>{aiError}</span>
+            </div>
+          </div>
+        )}
+
+        {/* AI Content */}
+        {aiAnalysis ? (
+          <div className="p-5 space-y-4">
+            {/* Executive Synthesis */}
+            <div className="p-4 bg-indigo-50/60 border border-indigo-150 rounded-xl space-y-1">
+              <span className="text-[10px] uppercase font-bold text-indigo-700 tracking-wider block">
+                Executive Synthesis ({aiAnalysis.modelUsed || 'OpenRouter'})
+              </span>
+              <p className="text-xs text-slate-800 leading-relaxed font-medium">
+                {aiAnalysis.summary}
+              </p>
+            </div>
+
+            {/* 3 Columns: Facts, Hypotheses, Checks */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Column 1: Verified Deterministic Facts */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center gap-1.5 text-emerald-700">
+                  <Check className="w-4 h-4" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">
+                    Authoritative Database Facts
+                  </h4>
+                </div>
+                <ul className="space-y-2 text-xs text-slate-700">
+                  {(aiAnalysis.facts || []).map((fact: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 mt-1.5" />
+                      <span className="leading-snug">{fact}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Column 2: Potential Causes (Hypotheses) */}
+              <div className="p-4 bg-amber-50/50 border border-amber-200/80 rounded-xl space-y-3">
+                <div className="flex items-center gap-1.5 text-amber-800">
+                  <BrainCircuit className="w-4 h-4" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">
+                    Potential Causes (Hypotheses)
+                  </h4>
+                </div>
+                <ul className="space-y-2 text-xs text-slate-700">
+                  {(aiAnalysis.potential_causes || []).map((cause: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                      <span className="leading-snug">{cause}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Column 3: Recommended Checks */}
+              <div className="p-4 bg-sky-50/50 border border-sky-200/80 rounded-xl space-y-3">
+                <div className="flex items-center gap-1.5 text-sky-800">
+                  <ListChecks className="w-4 h-4" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider">
+                    Recommended Operator Checks
+                  </h4>
+                </div>
+                <ul className="space-y-2 text-xs text-slate-700">
+                  {(aiAnalysis.recommended_checks || []).map((check: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0 mt-1.5" />
+                      <span className="leading-snug">{check}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : !aiLoading && !aiError ? (
+          <div className="p-8 text-center space-y-2">
+            <p className="text-xs text-slate-600 font-medium">
+              Click <strong>Generate AI Analysis</strong> to evaluate this incident using OpenRouter AI.
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Synthesizes transaction volume, variance percentages, and historical movement ledger into actionable hypotheses.
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       {/* Middle Two-Column Grid: Timeline & Evidence vs Investigation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

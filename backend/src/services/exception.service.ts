@@ -108,6 +108,7 @@ export class ExceptionService {
           },
         },
         resolution: true,
+        aiAnalysis: true,
       },
     });
 

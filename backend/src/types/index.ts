@@ -54,3 +54,19 @@ export interface AuthUser {
   name: string;
   role: string;
 }
+
+export interface AIAnalysisOutput {
+  summary: string;
+  facts: string[];
+  potential_causes: string[];
+  recommended_checks: string[];
+  modelUsed?: string;
+  confidence?: string;
+}
+
+export interface IntegrationStatus {
+  stocksenseCore: { status: 'healthy' | 'degraded'; message: string };
+  postgres: { status: 'connected' | 'disconnected'; message: string };
+  n8n: { status: 'connected' | 'unavailable'; message: string; url?: string };
+  openRouter: { status: 'configured' | 'not_configured'; model?: string; message: string };
+}

@@ -8,16 +8,31 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : ['http://localhost:3000', 'http://localhost:5173'];
+
 app.use(cors({
-  origin: '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, Postman, n8n callbacks)
+    if (!origin) return callback(null, true);
+    // Allow any origin in development mode
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    // In production, check allowlist
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS: Origin ${origin} not allowed`));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-stocksense-webhook-secret', 'x-internal-automation-secret'],
+  credentials: true,
 }));
 
 app.use(express.json());
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({
     status: 'ok',
     service: 'StockSense Inventory Reality Engine',

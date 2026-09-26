@@ -1,0 +1,105 @@
+{
+  "name": "StockSense - High & Critical Severity Escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stocksense/exception-high-severity",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-high-sev",
+      "name": "High Severity Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "stocksense-exception-high-severity"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "severity-check-cond",
+              "leftValue": "={{ $json.body.data.severity }}",
+              "rightValue": "HIGH",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "check-severity",
+      "name": "Filter High or Critical",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:5000/api/integrations/n8n/callback",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-stocksense-webhook-secret",
+              "value": "={{ $vars.N8N_WEBHOOK_SECRET || 'stocksense-n8n-webhook-secret-2026' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"action\": \"CREATE_ESCALATION_TASK\",\n  \"exceptionId\": \"{{ $('High Severity Trigger').item.json.body.data.exceptionId }}\",\n  \"taskData\": {\n    \"title\": \"CRITICAL ESCALATION: Emergency physical recount & batch audit\",\n    \"description\": \"Automated escalation triggered for {{ $('High Severity Trigger').item.json.body.data.severity }} incident {{ $('High Severity Trigger').item.json.body.data.exceptionNumber }}. Verify physical pallets immediately.\",\n    \"dueDate\": \"{{ new Date(Date.now() + 14400000).toISOString() }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "create-priority-task",
+      "name": "Auto-Create Priority Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 240]
+    }
+  ],
+  "connections": {
+    "High Severity Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter High or Critical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High or Critical": {
+      "main": [
+        [
+          {
+            "node": "Auto-Create Priority Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

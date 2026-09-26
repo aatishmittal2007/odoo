@@ -93,6 +93,15 @@ export class StockService {
     return balances.reduce((sum: number, b: any) => sum + b.quantity, 0);
   }
 
+  static async getTotalProductStock(productId: string, tx?: any): Promise<number> {
+    return this.getProductTotalStock(productId, tx);
+  }
+
+  static async getStockBalance(productId: string, warehouseId: string, locationId: string, tx?: any): Promise<number> {
+    const bal = await this.getOrCreateBalance(productId, warehouseId, locationId, tx);
+    return bal.quantity;
+  }
+
   /**
    * Get breakdown of stock by location for a product.
    */

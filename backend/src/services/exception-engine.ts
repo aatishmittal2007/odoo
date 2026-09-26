@@ -1,5 +1,6 @@
 import prisma from '../prisma';
 import { ExceptionType, ExceptionSeverity, ExceptionStatus } from '../types';
+import { N8nService } from './n8n/n8n.service';
 
 export class ExceptionEngine {
   static async getNextExceptionNumber(client: any): Promise<string> {
@@ -86,6 +87,14 @@ export class ExceptionEngine {
 
     // Create default investigation tasks for warehouse staff
     await this.createDefaultTasks(exception.id, params.warehouseId, params.locationId, client);
+
+    // Notify n8n automation layer asynchronously (non-blocking)
+    this.notifyN8n(exception, {
+      variance: params.variance,
+      variancePercentage: params.variancePercentage,
+      systemQuantity: params.systemQuantity,
+      physicalQuantity: params.physicalQuantity,
+    });
 
     return exception;
   }
@@ -392,6 +401,38 @@ export class ExceptionEngine {
           sortOrder: i,
         },
       });
+    }
+  }
+
+  private static notifyN8n(exception: any, extraData: any = {}) {
+    try {
+      N8nService.dispatchEvent('exception.created', {
+        exceptionId: exception.id,
+        exceptionNumber: exception.exceptionNumber,
+        severity: exception.severity,
+        type: exception.type,
+        productId: exception.productId,
+        sku: exception.sku,
+        warehouseId: exception.warehouseId,
+        locationId: exception.locationId,
+        ...extraData,
+      });
+
+      if (exception.severity === ExceptionSeverity.HIGH || exception.severity === ExceptionSeverity.CRITICAL) {
+        N8nService.dispatchEvent('exception.high_severity', {
+          exceptionId: exception.id,
+          exceptionNumber: exception.exceptionNumber,
+          severity: exception.severity,
+          type: exception.type,
+          productId: exception.productId,
+          sku: exception.sku,
+          warehouseId: exception.warehouseId,
+          locationId: exception.locationId,
+          ...extraData,
+        });
+      }
+    } catch (err: any) {
+      console.warn(`[ExceptionEngine] Non-blocking n8n notification error: ${err.message}`);
     }
   }
 }

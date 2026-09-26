@@ -1,0 +1,112 @@
+{
+  "name": "StockSense - Overdue Investigation Detection & Escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "hourly-schedule",
+      "name": "Hourly Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:5000/api/exceptions?status=OPEN",
+        "method": "GET",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "fetch-open-exceptions",
+      "name": "Fetch Open Exceptions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date().getTime();\nconst items = $input.all();\nconst overdue = [];\n\nfor (const item of items) {\n  const ex = item.json;\n  if (ex.dueDate && new Date(ex.dueDate).getTime() < now) {\n    overdue.push({\n      json: {\n        exceptionId: ex.id,\n        exceptionNumber: ex.exceptionNumber,\n        dueDate: ex.dueDate,\n        hoursOverdue: Math.round((now - new Date(ex.dueDate).getTime()) / 3600000),\n        severity: ex.severity\n      }\n    });\n  }\n}\nreturn overdue;"
+      },
+      "id": "filter-overdue",
+      "name": "Filter Overdue Investigations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:5000/api/integrations/n8n/callback",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-stocksense-webhook-secret",
+              "value": "={{ $vars.N8N_WEBHOOK_SECRET || 'stocksense-n8n-webhook-secret-2026' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"action\": \"CREATE_ESCALATION_TASK\",\n  \"exceptionId\": \"{{ $json.exceptionId }}\",\n  \"taskData\": {\n    \"title\": \"OVERDUE INVESTIGATION: Expedite resolution\",\n    \"description\": \"Incident {{ $json.exceptionNumber }} is {{ $json.hoursOverdue }}h past due date. Management escalation logged.\",\n    \"dueDate\": \"{{ new Date().toISOString() }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "create-overdue-escalation",
+      "name": "Create Overdue Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Hourly Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Open Exceptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Open Exceptions": {
+      "main": [
+        [
+          {
+            "node": "Filter Overdue Investigations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Overdue Investigations": {
+      "main": [
+        [
+          {
+            "node": "Create Overdue Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

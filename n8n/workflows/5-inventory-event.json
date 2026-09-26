@@ -1,0 +1,228 @@
+{
+  "name": "StockSense - Generic Inventory Event Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stocksense/inventory-event",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "inventory-event-webhook",
+      "name": "Inventory Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "stocksense-inventory-event"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "receipt-cond",
+                    "leftValue": "={{ $json.body.event }}",
+                    "rightValue": "receipt.validated",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Receipt Validated"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "delivery-cond",
+                    "leftValue": "={{ $json.body.event }}",
+                    "rightValue": "delivery.validated",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Delivery Validated"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "adjustment-cond",
+                    "leftValue": "={{ $json.body.event }}",
+                    "rightValue": "stock.adjusted",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Stock Adjusted"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "event-router",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:5000/api/internal/automation/events",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-automation-secret",
+              "value": "={{ $vars.INTERNAL_AUTOMATION_SECRET || 'stocksense-internal-automation-2026' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"event\": \"receipt.validated\",\n  \"entityId\": \"{{ $json.body.data.receiptId }}\",\n  \"payload\": {{ JSON.stringify($json.body.data) }}\n}",
+        "options": {}
+      },
+      "id": "log-receipt-event",
+      "name": "Log Receipt Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 160]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:5000/api/internal/automation/events",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-automation-secret",
+              "value": "={{ $vars.INTERNAL_AUTOMATION_SECRET || 'stocksense-internal-automation-2026' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"event\": \"delivery.validated\",\n  \"entityId\": \"{{ $json.body.data.deliveryId }}\",\n  \"payload\": {{ JSON.stringify($json.body.data) }}\n}",
+        "options": {}
+      },
+      "id": "log-delivery-event",
+      "name": "Log Delivery Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:5000/api/internal/automation/events",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-automation-secret",
+              "value": "={{ $vars.INTERNAL_AUTOMATION_SECRET || 'stocksense-internal-automation-2026' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"event\": \"stock.adjusted\",\n  \"entityId\": \"{{ $json.body.data.productId }}\",\n  \"payload\": {{ JSON.stringify($json.body.data) }}\n}",
+        "options": {}
+      },
+      "id": "log-adjustment-event",
+      "name": "Log Adjustment Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 440]
+    }
+  ],
+  "connections": {
+    "Inventory Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route by Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [
+          {
+            "node": "Log Receipt Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Delivery Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Adjustment Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

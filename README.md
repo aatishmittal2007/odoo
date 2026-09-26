@@ -1,278 +1,236 @@
-# STOCKSENSE — Inventory Reality & Exception Management Platform
+# StockSense — Enterprise Inventory Reality Engine
 
-> **An enterprise-grade, explainable inventory control tower and exception management platform bridging the gap between system book inventory and physical reality.**
+> **Full-stack inventory management system** with real-time exception detection, investigation workflows, n8n automation, and PostgreSQL persistence.
 
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.3+-61dafb.svg)](https://react.dev/)
-[![Prisma ORM](https://img.shields.io/badge/Prisma-5.22.0-2D3748.svg)](https://www.prisma.io/)
-[![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4+-38bdf8.svg)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/license-ISC-green.svg)](LICENSE)
-
----
-
-## 1. Executive Summary & Product Purpose
-
-Modern warehouses lose millions every year to the **"Inventory Reality Gap"**: the divergence between what the Enterprise Resource Planning (ERP) database asserts is on the shelves and what actually physically exists. Traditional systems treat inventory as static numbers; discrepancies are either ignored, masked by blanket write-offs, or discovered too late when a customer delivery fails.
-
-**StockSense** solves this by establishing a continuous, deterministic audit loop:
+## Architecture
 
 ```
-[ Inventory Operation ]
-         │
-         ▼
-[ Stock Movement & Double-Sided Ledger ]
-         │
-         ▼
-[ Physical Verification (Cycle Count) ]
-         │
-         ▼
-[ Discrepancy Detection Engine ]
-         │
-         ▼
-[ Exception Incident (INC-xxx) ]
-         │
-         ▼
-[ Multi-Party Investigation & Tasks ]
-         │
-         ▼
-[ Root Cause Resolution & Reconciliation ]
-         │
-         ▼
-[ Process Health Analytics & Prevention ]
+┌─────────────────┐       ┌──────────────────────┐       ┌────────────┐
+│   Frontend      │ ───→  │   StockSense Backend  │ ───→  │ PostgreSQL │
+│  React + Vite   │       │   Node.js + Express   │       │   Port 5434│
+│  Port 3000      │       │   Port 5000           │       └────────────┘
+└─────────────────┘       └──────────────────────┘
+                                     │
+                           (non-blocking dispatch)
+                                     ↓
+                           ┌──────────────────────┐
+                           │     n8n Automation   │
+                           │    Port 5678/5679    │
+                           │  5 Active Workflows  │
+                           └──────────────────────┘
+                                     │
+                         (callback via /api/integrations)
+                                     ↓
+                           ┌──────────────────────┐
+                           │   StockSense Backend  │
+                           │ /api/internal/...    │
+                           └──────────────────────┘
 ```
 
-### Why StockSense is Differentiated:
-1. **Deterministic & Explainable**: Zero black-box AI chatbots or fake ML hallucinations. Every confidence score, discrepancy variance, customer demand shortfall, and recurring root-cause metric is transparent, auditable, and mathematically grounded.
-2. **Double-Sided Ledger Accounting**: Modeled on financial accounting, every stock movement logs balanced debit/credit entries with immutable before/after quantities.
-3. **Automated Business Impact Analysis**: Discrepancies immediately calculate downstream impact on committed customer orders, projecting delivery risks and unit shortages before customers are impacted.
-4. **Actionable Exception Lifecycle**: Complete investigation workflow with assignable staff tasks, digital audit trails, root cause taxonomy, and corrective reconciliation adjustments.
+## Quick Start
 
----
-
-## 2. Quickstart & Installation
-
-### Prerequisites
-- **Node.js**: `v20.x` or later (tested on Node v24)
-- **npm**: `v10.x` or later
-- **SQLite3** (built-in, zero external database setup required)
-
-### Step 1: Clone & Install Dependencies
+### Option A: Docker Compose (Recommended)
 
 ```bash
-# In the project root directory
+# Clone and start all services
+git clone <repo>
+cd stocksense
+
+# Start everything (PostgreSQL + Backend + Frontend + n8n)
+docker compose up --build
+
+# Services:
+#   Frontend:  http://localhost:3000
+#   Backend:   http://localhost:5000
+#   n8n:       http://localhost:5679
+#   PostgreSQL: localhost:5434
+```
+
+### Option B: Local Development
+
+**Prerequisites:** Node 20+, PostgreSQL 16+ running at port 5434
+
+```bash
+# 1. Start PostgreSQL (or use Docker just for DB)
+docker run -d \
+  --name stocksense-postgres \
+  -e POSTGRES_USER=stocksense \
+  -e POSTGRES_PASSWORD=stocksense_secret_2026 \
+  -e POSTGRES_DB=stocksense_db \
+  -p 5434:5432 \
+  postgres:16-alpine
+
+# 2. Backend
 cd backend
 npm install
+npx prisma db push
+npx tsx prisma/seed.ts   # Seeds demo data
+npm run dev              # http://localhost:5000
 
-cd ../frontend
-npm install
-```
-
-### Step 2: Initialize & Seed the Database
-
-The backend includes a comprehensive deterministic seed script that configures users, warehouses, locations, products, historical resolved incidents, and the **Steel Rods (INC-024)** demonstration scenario.
-
-```bash
-cd backend
-npm run prisma:generate
-npm run prisma:push
-npm run seed
-```
-
-### Step 3: Launch Application
-
-You can launch both servers simultaneously:
-
-```bash
-# Terminal 1 - Start Backend API (Port 5000)
-cd backend
-npm run dev
-
-# Terminal 2 - Start Frontend Application (Port 3000)
+# 3. Frontend (separate terminal)
 cd frontend
-npm run dev -- --port 3000
+npm install
+npm run dev              # http://localhost:3000
 ```
 
-- **Frontend Application**: [http://localhost:3000](http://localhost:3000)
-- **Backend API Server**: [http://localhost:5000/api](http://localhost:5000/api)
-- **API Health Check**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+## Default Credentials
 
----
+| Role | Email | Password |
+|------|-------|----------|
+| Manager | `manager@stocksense.io` | `password123` |
+| Staff | `staff@stocksense.io` | `password123` |
 
-## 3. Demo Credentials & Seamless Role Switching
+## Environment Variables
 
-StockSense provides pre-configured enterprise personas with **instant 1-click role switching** in the top navigation bar:
+### Backend (`backend/.env`)
 
-| Role | Email | Password | Responsibilities |
-|---|---|---|---|
-| **Inventory Manager** | `manager@stocksense.io` | `password123` | Full visibility, Control Tower, starts investigations, approves resolutions, manages products & warehouses. |
-| **Warehouse Staff** | `staff@stocksense.io` | `password123` | Floor execution, records receipts/deliveries/transfers, completes physical counts, executes assigned investigation tasks. |
+```env
+PORT=5000
+DATABASE_URL="postgresql://stocksense:stocksense_secret_2026@localhost:5434/stocksense_db?schema=public"
+JWT_SECRET="stocksense-enterprise-jwt-secret-2026"
+NODE_ENV="development"
 
-> **Evaluator Tip**: In the UI top navigation bar, click the **"Switch Role"** button to toggle instantly between Inventory Manager and Warehouse Staff with zero re-login friction.
+# n8n integration (optional — app works without n8n)
+N8N_HOST=localhost
+N8N_PORT=5678
+N8N_WEBHOOK_URL=http://localhost:5678/webhook/stocksense
+N8N_WEBHOOK_SECRET="stocksense-n8n-webhook-secret-2026"
+INTERNAL_AUTOMATION_SECRET="stocksense-internal-automation-2026"
 
----
-
-## 4. The Canonical Demonstration Scenario: Steel Rods (INC-024)
-
-StockSense comes pre-seeded with the exact verification scenario specified in the platform challenge:
-
-### The Storyline:
-1. **Product**: Steel Rods (`SR001`), Unit of Measure: `kg`.
-2. **Initial State**: Stored in **Main Warehouse / Rack A** with starting balance of `100 kg`.
-3. **Movement 1 (Receipt)**: `+100 kg` received into Rack A (System balance = `200 kg`).
-4. **Movement 2 (Internal Transfer)**: `-20 kg` transferred from Rack A to Rack B (Rack A = `180 kg`, Rack B = `20 kg`).
-5. **Movement 3 (Customer Delivery)**: `-60 kg` dispatched for **Order #1042** (Rack A = `120 kg`).
-6. **Movement 4 (Scrap Adjustment)**: `-3 kg` damaged stock written off (Rack A = `117 kg`, Facility total = `137 kg`).
-7. **The Discrepancy (Physical Count)**: Warehouse staff performs a physical count at Rack A and counts **`83 kg`** (Expected: `100 kg` at location).
-   - **Variance**: `-17 kg` (`-17.0%`).
-8. **Exception Triggered**: The deterministic exception engine automatically raises **`INC-024`** with `HIGH` severity.
-9. **Business Impact Analysis**:
-   - System aggregates committed pending customer orders:
-     - `Order #1042`: Apex Infrastructure Ltd (Demand: 60 kg, Scheduled)
-     - `Order #1051`: Skyline Builders (Demand: 10 kg, Scheduled)
-     - `Order #1066`: Horizon Engineering Group (Demand: 66 kg, Scheduled)
-   - **Total Demand**: `136 kg` vs **Physical Availability**: `83 kg`.
-   - **Shortage Detected**: **`53 kg shortfall`**! Order #1066 is marked as **`AT_RISK`**.
-10. **Investigation & Resolution**:
-    - Investigation assigned to staff (`Sam Rodriguez`) with 3 floor audit tasks.
-    - Root cause identified: **`TRANSFER_ERROR`** (Rack A to Rack B transfer misplacement).
-    - Resolution reconciles system balance via a formal Stock Adjustment and logs full audit history.
-    - Process Health aggregates the incident into the recurring transfer failure analysis.
-
----
-
-## 5. System Architecture & Tech Stack
-
-```
-stocksense/
-├── backend/                  # Node.js + Express + TypeScript Backend
-│   ├── prisma/
-│   │   ├── schema.prisma     # 18 relational models (Prisma ORM)
-│   │   ├── dev.db            # SQLite database
-│   │   └── seed.ts           # Comprehensive deterministic seed script
-│   └── src/
-│       ├── controllers/      # REST API route controllers
-│       ├── middleware/       # JWT auth, role validation, error handling
-│       ├── routes/           # Express router endpoints
-│       ├── services/         # Deterministic business logic & engines
-│       │   ├── exception-engine.ts   # 7 Deterministic exception rules
-│       │   ├── business-impact.ts    # Shortage & customer order demand math
-│       │   ├── confidence-score.ts   # Transparent 0-100% score + itemized factors
-│       │   ├── analytics.service.ts  # Process health & root cause recurrence
-│       │   ├── ledger.service.ts     # Immutable double-sided ledger entries
-│       │   └── stock.service.ts      # Multi-location atomic balance updates
-│       ├── acceptance-test.ts        # 12-Step automated acceptance test suite
-│       └── server.ts                 # Express HTTP server bootstrap
-│
-└── frontend/                 # React 18 + Vite + TypeScript SPA
-    ├── src/
-    │   ├── components/
-    │   │   ├── common/       # Badges, ConfidenceGauge, Modals, StatCards
-    │   │   ├── exceptions/   # Timeline, EvidencePanel, BusinessImpact, InvestigationBox, ResolutionModal
-    │   │   ├── layout/       # AppShell, Navbar, Sidebar, RoleSwitch
-    │   │   └── operations/   # RecordCountModal, Operation Modals
-    │   ├── context/          # AuthContext with 1-click role switcher
-    │   ├── pages/            # Control Tower, Exceptions, Products, Warehouses, Operations, Process Health
-    │   ├── services/         # Axios API client
-    │   └── types/            # TypeScript domain interfaces
-    └── vite.config.ts        # Vite configuration with /api proxy
+# AI (optional — deterministic fallback active when not set)
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=google/gemini-2.0-flash-001
 ```
 
----
+### Docker `.env` (project root — optional overrides)
 
-## 6. Deterministic Exception Rules Engine
+```env
+POSTGRES_USER=stocksense
+POSTGRES_PASSWORD=stocksense_secret_2026
+POSTGRES_DB=stocksense_db
+POSTGRES_PORT=5434
+JWT_SECRET=stocksense-enterprise-jwt-secret-2026
+N8N_WEBHOOK_SECRET=stocksense-n8n-webhook-secret-2026
+INTERNAL_AUTOMATION_SECRET=stocksense-internal-automation-2026
+N8N_PORT=5679
+# AI is optional:
+OPENROUTER_API_KEY=
+```
 
-StockSense replaces unpredictable AI prompts with **7 rigorous, auditable mathematical rules**:
+## Key Design Principles
 
-| Rule ID | Rule Name | Trigger Criteria | Severity |
-|---|---|---|---|
-| **RULE-01** | **Physical Discrepancy** | `|Physical Qty - System Qty| > 0` during count. Discrepancy > 15% yields CRITICAL; > 5% yields HIGH. | `HIGH` / `CRITICAL` |
-| **RULE-02** | **Location Mismatch** | Stock found in unassigned rack/location or during mismatched barcode scan. | `MEDIUM` |
-| **RULE-03** | **Unusual Adjustment** | Manual adjustment exceeds 10% of total stock or threshold of 25 units. | `HIGH` |
-| **RULE-04** | **Count Overdue** | Location has not had a physical cycle count in over 30 days. | `LOW` |
-| **RULE-05** | **Low Stock Threshold** | Total available inventory falls below defined product reorder level. | `MEDIUM` |
-| **RULE-06** | **Negative Stock Anomaly** | Any operation attempting to bring a location or facility balance below zero. | `CRITICAL` |
-| **RULE-07** | **Transfer In-Transit Lag** | Internal transfer remains in transit for more than 48 hours without receipt. | `MEDIUM` |
+### No External API Keys Required
+The system is **fully functional without any external API keys**. AI analysis degrades gracefully to deterministic heuristics:
+- Exception summaries → rule-based text from exception data
+- Daily inventory briefs → generated from KPI metrics
+- Severity escalations → threshold-based rules
 
----
+### n8n Failure Isolation
+n8n failures **never affect core inventory operations**. Every dispatch is:
+- Fire-and-forget (non-blocking)
+- Retried up to 2 times with backoff
+- Logged to `AutomationEvent` table regardless of success/failure
 
-## 7. REST API Documentation
+### Idempotent Database Seeding
+The backend entrypoint checks user count before seeding — **data is never wiped** on container restart.
 
-### Authentication (`/api/auth`)
-- `POST /api/auth/login` — Login with email and password.
-- `POST /api/auth/demo-login` — 1-click login by role (`INVENTORY_MANAGER` or `WAREHOUSE_STAFF`).
-- `GET /api/auth/me` — Get authenticated user profile.
-- `GET /api/auth/users` — List staff and managers for task assignment.
-- `POST /api/auth/mock-otp` — Request mock OTP password reset.
+## n8n Workflows
 
-### Control Tower & Analytics (`/api/dashboard`)
-- `GET /api/dashboard/control-tower` — KPI metrics, system confidence score, factor breakdown, and needs-attention triage.
-- `GET /api/dashboard/process-health` — Aggregated resolution rates, root cause distribution, and high-risk transfer routes.
-- `GET /api/dashboard/drilldown/:rootCause` — Drill-down analysis for specific failure modes.
-- `GET /api/dashboard/search?q=...` — Unified global search across products, exceptions, orders, and locations.
-- `POST /api/dashboard/reset-demo` — 1-click reset of demo data to pristine initial scenario state.
+| # | Name | Trigger | Action |
+|---|------|---------|--------|
+| 1 | Exception Created AI Analysis | Webhook `POST /webhook/stocksense/exception-created` | Calls AI summary endpoint → stores to AIAnalysis |
+| 2 | High & Critical Severity Escalation | Webhook `POST /webhook/stocksense/exception-high-severity` | Auto-creates InvestigationTask for HIGH/CRITICAL |
+| 3 | Daily Inventory Summary | Schedule: 8AM UTC | Fetches KPIs → stores to InventorySummary |
+| 4 | Overdue Investigation Detection | Schedule: Every hour | Finds overdue open exceptions → creates escalation tasks |
+| 5 | Generic Inventory Event Router | Webhook `POST /webhook/stocksense/inventory-event` | Routes receipt/delivery/adjustment events to internal log |
 
-### Exceptions Management (`/api/exceptions`)
-- `GET /api/exceptions` — List exceptions with multi-dimensional filtering (status, severity, type, warehouse, SKU).
-- `GET /api/exceptions/:id` — Full exception dossier (by UUID or `INC-xxx`), including evidence, audit timeline, and business impact.
-- `POST /api/exceptions/:id/investigate` — Assign investigator, set due date, and open formal investigation.
-- `POST /api/exceptions/:id/tasks` — Add investigation task for warehouse staff.
-- `PATCH /api/exceptions/tasks/:taskId` — Complete/toggle task with verification notes.
-- `POST /api/exceptions/:id/resolve` — Submit root cause, corrective actions, and execute inventory reconciliation adjustment.
-- `POST /api/exceptions/scan-transfers` — Run automated transfer latency scan.
+### Workflow Import (automatic in Docker)
+Workflows are auto-imported when the n8n container starts via `n8n/docker-entrypoint.sh`.
 
-### Inventory Operations (`/api/inventory`)
-- `GET /api/inventory/stock` — Company-wide and location-level stock balance overview.
-- `GET /api/inventory/ledger` — Immutable double-sided stock movement audit ledger.
-- `GET /api/inventory/receipts` — List purchase receipts.
-- `POST /api/inventory/receipts` — Create new receipt.
-- `POST /api/inventory/receipts/:id/validate` — Validate receipt and increment stock.
-- `GET /api/inventory/deliveries` — List outgoing customer deliveries.
-- `POST /api/inventory/deliveries/:id/validate` — Validate delivery and decrement stock.
-- `GET /api/inventory/transfers` — List internal warehouse transfers.
-- `POST /api/inventory/transfers/:id/complete` — Complete transfer between locations.
-- `GET /api/inventory/adjustments` — List inventory adjustments.
-- `POST /api/inventory/adjustments` — Record manual inventory adjustment.
-- `GET /api/inventory/physical-counts` — List cycle counts and audits.
-- `POST /api/inventory/physical-counts` — Submit physical count (triggers discrepancy engine).
+### Webhook Secret
+All webhook calls from StockSense → n8n include header:
+```
+x-stocksense-webhook-secret: <N8N_WEBHOOK_SECRET>
+```
 
-### Products & Warehouses
-- `GET /api/products` — List all products with category and total stock.
-- `GET /api/products/:id` — Product detail with location balances and movement history.
-- `POST /api/products` — Create new product with SKU, barcode, and reorder levels.
-- `GET /api/warehouses` — List warehouses with location hierarchy (racks & shelves).
+### n8n → Backend (Internal Automation Channel)
+n8n calls back to the backend using:
+```
+x-internal-automation-secret: <INTERNAL_AUTOMATION_SECRET>
+```
 
----
+Endpoints:
+- `POST /api/internal/automation/events` — log a processed event
+- `POST /api/internal/automation/tasks` — create escalation task
+- `POST /api/internal/automation/summaries` — store daily inventory summary
+- `GET /api/internal/automation/events` — query event log
+- `GET /api/internal/automation/summaries` — query summaries
 
-## 8. Verification & Acceptance Testing
+## API Overview
 
-The platform includes an automated 12-step end-to-end integration and acceptance test suite validating the complete lifecycle.
+```
+POST   /api/auth/login
+GET    /api/products
+GET    /api/warehouses
+GET    /api/inventory
+GET    /api/exceptions          POST /api/exceptions
+GET    /api/exceptions/:id      PATCH /api/exceptions/:id
+GET    /api/tasks               POST /api/tasks
+GET    /api/audit-logs
+GET    /api/dashboard/control-tower
+GET    /api/dashboard/process-health
+GET    /api/integrations/status
+POST   /api/integrations/n8n/callback
+POST   /api/ai/exceptions/:id/summary
+GET    /api/receipts            POST /api/receipts
+GET    /api/deliveries          POST /api/deliveries
+GET    /api/transfers           POST /api/transfers
+GET    /api/adjustments         POST /api/adjustments
+GET    /api/physical-counts     POST /api/physical-counts
+GET    /api/stock
+GET    /api/ledger
+```
 
-To execute the test suite:
+## Database Schema (PostgreSQL)
+
+Key models: `User`, `Product`, `Warehouse`, `StockLevel`, `StockLedger`, `Receipt`, `Delivery`, `Transfer`, `Adjustment`, `PhysicalCount`, `Exception`, `InvestigationTask`, `AIAnalysis`, `AutomationEvent`, `InventorySummary`, `AuditLog`
+
+## Testing
 
 ```bash
-cd backend
-npx tsx src/acceptance-test.ts
+# Phase 1 acceptance tests
+cd backend && npx tsx tests/acceptance-test.ts
+
+# Phase 2 E2E tests
+npx tsx tests/e2e-phase2-test.ts
+
+# Phase 3 integration tests (requires running backend + DB)
+node test-phase3.mjs
+
+# Full workflow test
+npx tsx tests/test-workflow.ts
 ```
 
-### Verified Test Suite Steps:
-```
-[PASS] Test 01: Product Creation with SKU and Category
-[PASS] Test 02: Initial Receipt & Double-Sided Stock Ledger Entry
-[PASS] Test 03: Internal Transfer from Rack A to Rack B
-[PASS] Test 04: Customer Delivery Outflow
-[PASS] Test 05: Physical Cycle Count Recording (Variance Detected)
-[PASS] Test 06: Auto-Creation of Exception Incident (INC-xxx)
-[PASS] Test 07: Evidence Dossier & Timeline Event Linking
-[PASS] Test 08: Investigation Assignment & Status Transition
-[PASS] Test 09: Staff Investigation Checklist Task Completion
-[PASS] Test 10: Root Cause Resolution & Reconciliation Stock Adjustment
-[PASS] Test 11: Control Tower Confidence Score Dynamic Recalculation
-[PASS] Test 12: Relational Data Persistence Verification in Database
-```
+## Docker Volumes
 
----
+| Volume | Contents |
+|--------|----------|
+| `stocksense_postgres_data` | PostgreSQL data (persistent) |
+| `stocksense_n8n_data` | n8n workflows, credentials, SQLite DB |
 
-## 9. License
+## Troubleshooting
 
-This project is created for the Hackathon / StockSense Inventory Reality & Exception Management Challenge. Licensed under the ISC License.
+**n8n webhooks returning 500?**
+- Ensure n8n is healthy: `curl http://localhost:5679/healthz`
+- Check workflow is active in n8n UI: `http://localhost:5679`
+- Re-import workflows: `docker compose restart n8n`
+
+**Backend can't reach PostgreSQL?**
+- Check container: `docker ps | grep postgres`
+- Check port: `docker compose port postgres 5432`
+
+**Seed runs but data already exists?**
+- This is safe — the entrypoint checks `user.count()` before seeding
+
+**AI analysis always shows "Heuristic"?**
+- This is correct when `OPENROUTER_API_KEY` is not set — the system uses deterministic fallbacks

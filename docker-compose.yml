@@ -1,0 +1,129 @@
+services:
+  # 1. Authoritative PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: stocksense-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stocksense}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stocksense_secret_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-stocksense_db}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stocksense} -d ${POSTGRES_DB:-stocksense_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stocksense-net
+
+  # 2. StockSense Core Backend Engine
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stocksense-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-stocksense}:${POSTGRES_PASSWORD:-stocksense_secret_2026}@postgres:5432/${POSTGRES_DB:-stocksense_db}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-stocksense-enterprise-jwt-secret-2026}
+      CORS_ORIGIN: http://localhost:3000,http://frontend:80
+      # AI is optional — leave blank to use deterministic fallback
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.0-flash-001}
+      # n8n integration
+      N8N_HOST: n8n
+      N8N_PORT: 5678
+      N8N_WEBHOOK_URL: http://n8n:5678/webhook/stocksense
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-stocksense-n8n-webhook-secret-2026}
+      # Internal automation channel (n8n → backend)
+      INTERNAL_AUTOMATION_SECRET: ${INTERNAL_AUTOMATION_SECRET:-stocksense-internal-automation-2026}
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - stocksense-net
+
+  # 3. StockSense Control Tower Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: stocksense-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - stocksense-net
+
+  # 4. n8n Automation Engine
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: stocksense-n8n
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      NODE_ENV: production
+      WEBHOOK_URL: http://n8n:5678/
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-stocksense-n8n-webhook-secret-2026}
+      INTERNAL_AUTOMATION_SECRET: ${INTERNAL_AUTOMATION_SECRET:-stocksense-internal-automation-2026}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      GENERIC_TIMEZONE: UTC
+      # Disable n8n telemetry
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      # Allow workflow imports via CLI without prompting
+      N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN: "true"
+    ports:
+      - "${N8N_PORT:-5679}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+      - ./n8n/docker-entrypoint.sh:/docker-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - stocksense-net
+
+volumes:
+  postgres_data:
+    name: stocksense_postgres_data
+  n8n_data:
+    name: stocksense_n8n_data
+
+networks:
+  stocksense-net:
+    name: stocksense-net
+    driver: bridge

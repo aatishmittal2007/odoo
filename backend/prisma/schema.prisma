@@ -1,6 +1,6 @@
 // StockSense Prisma Schema
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -307,6 +307,7 @@ model Exception {
   investigation Investigation?
   tasks      InvestigationTask[]
   resolution ExceptionResolution?
+  aiAnalysis AIAnalysis?
 }
 
 model ExceptionEvidence {
@@ -378,4 +379,53 @@ model AuditLog {
 
   user User? @relation(fields: [userId], references: [id])
 }
+
+model AIAnalysis {
+  id                    String   @id @default(uuid())
+  exceptionId           String   @unique
+  summary               String
+  factsJson             String   // JSON string of string[]: verified deterministic facts
+  potentialCausesJson   String   // JSON string of string[]: hypotheses
+  recommendedChecksJson String   // JSON string of string[]: suggested actions
+  modelUsed             String?
+  confidence            String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  exception Exception @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+}
+
+model AutomationEvent {
+  id           String    @id @default(uuid())
+  eventId      String    @unique
+  eventType    String    // "receipt.created", "delivery.created", "transfer.created", "adjustment.created", "physical_count.created", "exception.created", "exception.high_severity", "exception.resolved"
+  entityType   String    // "Receipt", "Delivery", "Transfer", "Adjustment", "PhysicalCount", "Exception", "InvestigationTask"
+  entityId     String
+  payload      String    // JSON string of event payload
+  status       String    @default("PENDING") // "PENDING", "SENT", "PROCESSED", "FAILED"
+  retryCount   Int       @default(0)
+  createdAt    DateTime  @default(now())
+  processedAt  DateTime?
+  errorMessage String?
+}
+
+model InventorySummary {
+  id                    String   @id @default(uuid())
+  summaryText           String
+  metricsJson           String?  // JSON string of raw metrics
+  totalProducts         Int      @default(0)
+  totalStock            Float    @default(0)
+  lowStock              Int      @default(0)
+  negativeStock         Int      @default(0)
+  openExceptions        Int      @default(0)
+  criticalExceptions    Int      @default(0)
+  overdueInvestigations Int      @default(0)
+  recentReceipts        Int      @default(0)
+  recentDeliveries      Int      @default(0)
+  recentTransfers       Int      @default(0)
+  recentAdjustments     Int      @default(0)
+  generatedBy           String   @default("n8n")
+  createdAt             DateTime @default(now())
+}
+
 

@@ -11,6 +11,15 @@ import {
   FileText,
   Clock,
   Eye,
+  Cpu,
+  Layers,
+  Activity,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Server,
+  Workflow,
+  Sparkles,
 } from 'lucide-react';
 import api from '../services/api';
 import { User, Warehouse, AuditLogEntry } from '../types';
@@ -19,12 +28,16 @@ import { Modal } from '../components/common/Modal';
 
 export const SettingsPage: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'facilities' | 'audit'>('facilities');
+  const [activeTab, setActiveTab] = useState<'facilities' | 'audit' | 'integrations'>('facilities');
   const [users, setUsers] = useState<User[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+
+  // Integration & Architecture Status State (Phase 3)
+  const [integrationStatus, setIntegrationStatus] = useState<any>(null);
+  const [integrationLoading, setIntegrationLoading] = useState(false);
 
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -33,6 +46,18 @@ export const SettingsPage: React.FC = () => {
   const [auditActionFilter, setAuditActionFilter] = useState('ALL');
   const [auditSearch, setAuditSearch] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
+
+  const fetchIntegrationStatus = async () => {
+    try {
+      setIntegrationLoading(true);
+      const res = await api.get('/integrations/status');
+      setIntegrationStatus(res.data);
+    } catch (err) {
+      console.error('Failed to load integration status:', err);
+    } finally {
+      setIntegrationLoading(false);
+    }
+  };
 
   const loadSettingsData = async () => {
     try {
@@ -74,6 +99,8 @@ export const SettingsPage: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'audit') {
       fetchAuditLogs();
+    } else if (activeTab === 'integrations') {
+      fetchIntegrationStatus();
     }
   }, [activeTab, auditActionFilter]);
 
@@ -165,6 +192,17 @@ export const SettingsPage: React.FC = () => {
             {auditTotal}
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab('integrations')}
+          className={`pb-3 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'integrations'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Cpu className="w-4 h-4" />
+          <span>Architecture & Integrations</span>
+        </button>
       </div>
 
       {/* Facilities Tab Content */}
@@ -239,7 +277,7 @@ export const SettingsPage: React.FC = () => {
               </h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              StockSense runs with transparent deterministic rules on SQLite with Prisma ORM. All ledger movements, variances, business impacts, and root causes persist across browser refreshes.
+              StockSense runs on PostgreSQL with Prisma ORM. All ledger movements, variances, business impacts, and root causes persist durably across browser refreshes and container restarts.
             </p>
 
             {resetSuccess && (
@@ -409,6 +447,180 @@ export const SettingsPage: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Integrations Tab Content (Phase 3 Integration) */}
+      {activeTab === 'integrations' && (
+        <div className="space-y-6">
+          {/* Top Bar with Live Health Refresh */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+                Integration & Automation Health Dashboard
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Real-time operational status for core inventory persistence, asynchronous automation, and AI services.
+              </p>
+            </div>
+
+            <button
+              onClick={fetchIntegrationStatus}
+              disabled={integrationLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${integrationLoading ? 'animate-spin' : ''}`} />
+              <span>{integrationLoading ? 'Verifying Services...' : 'Verify Live Health'}</span>
+            </button>
+          </div>
+
+          {/* 4 Health Status Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: StockSense Core */}
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded border bg-emerald-50 text-emerald-800 border-emerald-200">
+                  HEALTHY
+                </span>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">StockSense Core</h3>
+                <span className="text-[11px] text-slate-400 font-mono block">Node.js / Express</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Deterministic stock arithmetic, variance percentage calculations, and immutable ledger operations.
+              </p>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                <span>Role:</span>
+                <span className="font-bold text-slate-800">Authoritative Engine</span>
+              </div>
+            </div>
+
+            {/* Card 2: PostgreSQL */}
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+                  <Database className="w-4 h-4" />
+                </div>
+                <span
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                    integrationStatus?.postgres?.status === 'connected'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                  }`}
+                >
+                  {integrationStatus?.postgres?.status === 'connected' ? 'CONNECTED' : 'STANDBY'}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">PostgreSQL</h3>
+                <span className="text-[11px] text-slate-400 font-mono block">Port 5432 • Prisma ORM</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Authoritative single source of truth for stock balances, physical counts, and immutable audit logs.
+              </p>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                <span>Persistence:</span>
+                <span className="font-mono text-slate-800 font-bold">postgres_data</span>
+              </div>
+            </div>
+
+            {/* Card 3: n8n Automation */}
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <Workflow className="w-4 h-4" />
+                </div>
+                <span
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                    integrationStatus?.n8n?.status === 'connected'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}
+                >
+                  {integrationStatus?.n8n?.status === 'connected' ? 'CONNECTED' : 'OFFLINE'}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">n8n Automation</h3>
+                <span className="text-[11px] text-slate-400 font-mono block">Port 5678 • Webhooks</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Asynchronous event processing for high-severity escalations, daily summaries, and overdue task tracking.
+              </p>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                <span>Coupling:</span>
+                <span className="font-bold text-purple-700">Decoupled / Non-blocking</span>
+              </div>
+            </div>
+
+            {/* Card 4: OpenRouter AI */}
+            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <span
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                    integrationStatus?.openRouter?.status === 'configured'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}
+                >
+                  {integrationStatus?.openRouter?.status === 'configured' ? 'CONFIGURED' : 'HEURISTIC'}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">OpenRouter AI</h3>
+                <span className="text-[11px] text-slate-400 font-mono block truncate" title={integrationStatus?.openRouter?.model}>
+                  {integrationStatus?.openRouter?.model || 'google/gemini-2.0-flash-001'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Structured discrepancy dossier synthesis and hypothesis generation. Keys remain strictly server-side.
+              </p>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                <span>Guardrails:</span>
+                <span className="font-bold text-emerald-700">Prompt Injection Guard</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Architecture Principles & Non-blocking Guarantee Card */}
+          <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800 shadow-md space-y-4">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <Cpu className="w-4 h-4" />
+              <h3 className="text-sm font-bold uppercase tracking-wider">
+                System Resilience & Single Source of Truth Principles
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-300">
+              <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60 space-y-1">
+                <strong className="text-emerald-400 block font-semibold">1. Authoritative Core</strong>
+                <p>
+                  PostgreSQL and StockSense backend validate every transaction. AI and n8n never calculate stock balances, variances, or severities.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60 space-y-1">
+                <strong className="text-emerald-400 block font-semibold">2. Zero-Disruption Fallback</strong>
+                <p>
+                  Receipts, deliveries, transfers, counts, and adjustments always succeed even if n8n or OpenRouter are temporarily unreachable.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700/60 space-y-1">
+                <strong className="text-emerald-400 block font-semibold">3. Strict Data Separation</strong>
+                <p>
+                  AI analysis strictly separates verified deterministic records from unconfirmed hypotheses. Investigators remain the final authority.
+                </p>
+              </div>
             </div>
           </div>
         </div>
